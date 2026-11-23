@@ -54,6 +54,10 @@ struct PermissionCard: View {
         return "Permitir sempre"
     }
 
+    private var releaseLabel: String {
+        request.source == .antigravity ? "Responder no Antigravity" : "Responder no terminal"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -74,7 +78,7 @@ struct PermissionCard: View {
 
             if ui.showDenyField {
                 HStack(spacing: 8) {
-                    TextField("Instrução para o Claude…", text: $ui.denyMessage)
+                    TextField("Instrução…", text: $ui.denyMessage)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit {
                             store.deny(request, message: ui.denyMessage)
@@ -128,7 +132,7 @@ struct PermissionCard: View {
 
                 Spacer()
 
-                Button("Responder no terminal") {
+                Button(releaseLabel) {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)
@@ -147,7 +151,7 @@ struct PermissionCard: View {
 
     private var timerText: String {
         if let rem = remaining {
-            return "esperando há \(elapsed) s · terminal em \(rem) s"
+            return "esperando há \(elapsed) s · fallback em \(rem) s"
         }
         return "esperando há \(elapsed) s"
     }
@@ -155,14 +159,14 @@ struct PermissionCard: View {
     @ViewBuilder
     private var toolDetailView: some View {
         switch request.toolName {
-        case "Bash":
+        case "Bash", "run_command":
             VStack(alignment: .leading, spacing: 4) {
-                if let desc = request.toolInput.nonEmptyStr("description") {
+                if let desc = request.toolInput.nonEmptyStr("description") ?? request.toolInput.nonEmptyStr("Cwd") {
                     Text(desc)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.70))
                 }
-                let cmd = request.toolInput.str("command") ?? ""
+                let cmd = request.toolInput.str("command") ?? request.toolInput.str("CommandLine") ?? ""
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(cmd)
                         .font(.system(.caption, design: .monospaced))
@@ -175,19 +179,28 @@ struct PermissionCard: View {
                 .cornerRadius(6)
             }
 
-        case "Edit", "MultiEdit":
-            let path = request.toolInput.str("file_path") ?? ""
+        case "Edit", "MultiEdit", "edit_file", "replace_file_content", "multi_replace_file_content":
+            let path = request.toolInput.str("file_path")
+                ?? request.toolInput.str("Path")
+                ?? request.toolInput.str("TargetFile")
+                ?? ""
             let oldStr: String = {
-                if let s = request.toolInput.str("old_string") { return s }
-                if let edits = request.toolInput.arr("edits"), let first = edits.first {
-                    return first.str("old_string") ?? ""
+                if let s = request.toolInput.str("old_string")
+                    ?? request.toolInput.str("Target")
+                    ?? request.toolInput.str("TargetContent") { return s }
+                if let edits = request.toolInput.arr("edits") ?? request.toolInput.arr("ReplacementChunks"),
+                   let first = edits.first {
+                    return first.str("old_string") ?? first.str("TargetContent") ?? ""
                 }
                 return ""
             }()
             let newStr: String = {
-                if let s = request.toolInput.str("new_string") { return s }
-                if let edits = request.toolInput.arr("edits"), let first = edits.first {
-                    return first.str("new_string") ?? ""
+                if let s = request.toolInput.str("new_string")
+                    ?? request.toolInput.str("Replacement")
+                    ?? request.toolInput.str("ReplacementContent") { return s }
+                if let edits = request.toolInput.arr("edits") ?? request.toolInput.arr("ReplacementChunks"),
+                   let first = edits.first {
+                    return first.str("new_string") ?? first.str("ReplacementContent") ?? ""
                 }
                 return ""
             }()
@@ -201,9 +214,15 @@ struct PermissionCard: View {
                 }
             }
 
-        case "Write":
-            let path = request.toolInput.str("file_path") ?? ""
-            let content = request.toolInput.str("content") ?? ""
+        case "Write", "write_file", "write_to_file":
+            let path = request.toolInput.str("file_path")
+                ?? request.toolInput.str("Path")
+                ?? request.toolInput.str("TargetFile")
+                ?? ""
+            let content = request.toolInput.str("content")
+                ?? request.toolInput.str("Content")
+                ?? request.toolInput.str("CodeContent")
+                ?? ""
             VStack(alignment: .leading, spacing: 4) {
                 Text(path)
                     .font(.system(.caption, design: .monospaced))
@@ -220,6 +239,36 @@ struct PermissionCard: View {
                 .background(Theme.insetSurface)
                 .cornerRadius(6)
             }
+
+        case "ask_permission":
+            let action = request.toolInput.nonEmptyStr("Action") ?? "—"
+            let target = request.toolInput.nonEmptyStr("Target") ?? "—"
+            let reason = request.toolInput.nonEmptyStr("Reason")
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("Ação:")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                    Text(action)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.white)
+                    Text("· Alvo:")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                    Text(target)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.aqua)
+                }
+                if let reason {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.insetSurface)
+            .cornerRadius(6)
 
         default:
             let text = truncateLines(prettyJSON(request.toolInput), max: 25)
@@ -297,8 +346,16 @@ struct QuestionCard: View {
         request.toolInput.arr("questions") ?? []
     }
 
+    private var releaseLabel: String {
+        request.source == .antigravity ? "Responder no Antigravity" : "Responder no terminal"
+    }
+
+    private var headerLabel: String {
+        request.source == .antigravity ? "Pergunta do Antigravity" : "Pergunta do Claude"
+    }
+
     private func answerFor(index: Int, q: [String: Any]) -> String? {
-        let isMulti = q.bool("multiSelect") ?? false
+        let isMulti = q.bool("multiSelect") ?? q.bool("is_multi_select") ?? false
         let typed = (ui.otherText[index] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
         if isMulti {
@@ -332,7 +389,7 @@ struct QuestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Pergunta do Claude", systemImage: "questionmark.circle.fill")
+                Label(headerLabel, systemImage: "questionmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.amber)
                 Spacer()
@@ -361,7 +418,7 @@ struct QuestionCard: View {
 
                 Spacer()
 
-                Button("Responder no terminal") {
+                Button(releaseLabel) {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)
@@ -386,8 +443,17 @@ private struct QuestionBlock: View {
 
     private var header: String? { questionData.nonEmptyStr("header") }
     private var questionText: String { questionData.str("question") ?? "Pergunta \(index + 1)" }
-    private var options: [[String: Any]] { questionData.arr("options") ?? [] }
-    private var isMulti: Bool { questionData.bool("multiSelect") ?? false }
+    private var isMulti: Bool { questionData.bool("multiSelect") ?? questionData.bool("is_multi_select") ?? false }
+
+    private var parsedOptions: [(label: String, description: String?)] {
+        if let dictOpts = questionData.arr("options") {
+            return dictOpts.map { ($0.str("label") ?? "", $0.nonEmptyStr("description")) }
+        }
+        if let strOpts = questionData["options"] as? [String] {
+            return strOpts.map { ($0, nil) }
+        }
+        return []
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -406,11 +472,8 @@ private struct QuestionBlock: View {
                     .foregroundStyle(.white)
             }
 
-            ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
-                optionRow(
-                    label: opt.str("label") ?? "",
-                    description: opt.nonEmptyStr("description")
-                )
+            ForEach(Array(parsedOptions.enumerated()), id: \.offset) { _, opt in
+                optionRow(label: opt.label, description: opt.description)
             }
 
             HStack(spacing: 6) {

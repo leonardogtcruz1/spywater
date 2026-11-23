@@ -19,7 +19,7 @@ struct UsageHeader: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 WindowUsageCard(
-                    title: "Plano · 5 horas",
+                    title: "Claude · 5 horas",
                     icon: "bolt.fill",
                     accent: Theme.aqua,
                     pct: rateLimits?.fiveHourPct,
@@ -30,7 +30,7 @@ struct UsageHeader: View {
                 )
 
                 WindowUsageCard(
-                    title: "Plano · 7 dias",
+                    title: "Claude · 7 dias",
                     icon: "calendar.badge.clock",
                     accent: Theme.violet,
                     pct: rateLimits?.sevenDayPct,
@@ -41,23 +41,44 @@ struct UsageHeader: View {
                 )
             }
 
-            if localUsage != nil || rateLimits?.spendLimitPct != nil {
+            if let u = localUsage, (u.todayMessages > 0 || !u.topModels.isEmpty || u.agySevenDayMessages > 0 || u.agySevenDayTokens > 0 || rateLimits?.spendLimitPct != nil) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        if let u = localUsage {
+                        if u.todayMessages > 0 {
                             StatChip(
                                 icon: "sun.max.fill",
                                 tint: Theme.amber,
                                 text: "Hoje: \(u.todayMessages) turnos · \(u.todaySessions) \(u.todaySessions == 1 ? "sessão" : "sessões")"
                             )
+                        }
 
-                            ForEach(u.topModels, id: \.name) { item in
-                                StatChip(
-                                    icon: "sparkles",
-                                    tint: Theme.violet,
-                                    text: "\(item.name): \(formatTokens(item.tokens))"
-                                )
-                            }
+                        if u.agySevenDayMessages > 0 || u.agySevenDayTokens > 0 {
+                            StatChip(
+                                icon: "sparkles",
+                                tint: Theme.aqua,
+                                text: "Antigravity 5h: \(formatTokens(u.agyFiveHourTokens)) tok · \(u.agyFiveHourMessages) turnos"
+                            )
+                            StatChip(
+                                icon: "sparkles",
+                                tint: Theme.teal,
+                                text: "Antigravity 7d: \(formatTokens(u.agySevenDayTokens)) tok · \(u.agySevenDayMessages) turnos"
+                            )
+                        }
+
+                        ForEach(u.agyTopModels, id: \.name) { item in
+                            StatChip(
+                                icon: "cpu",
+                                tint: Theme.aqua,
+                                text: "\(item.name): \(formatTokens(item.tokens))"
+                            )
+                        }
+
+                        ForEach(u.topModels, id: \.name) { item in
+                            StatChip(
+                                icon: "sparkles",
+                                tint: Theme.violet,
+                                text: "\(item.name): \(formatTokens(item.tokens))"
+                            )
                         }
 
                         if let rl = rateLimits, let spendPct = rl.spendLimitPct {
@@ -97,6 +118,17 @@ struct UsageHeader: View {
                 localText: localUsage.map { "\(formatTokens($0.sevenDayTokens)) tok" },
                 now: now
             )
+            if let u = localUsage, (u.agySevenDayTokens > 0 || u.agySevenDayMessages > 0) {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.aqua)
+                    Text("Antigravity · 5h: \(formatTokens(u.agyFiveHourTokens)) tok · 7d: \(formatTokens(u.agySevenDayTokens)) tok")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.70))
+                        .lineLimit(1)
+                }
+            }
         }
         .padding(9)
         .background(Theme.cardSurface)

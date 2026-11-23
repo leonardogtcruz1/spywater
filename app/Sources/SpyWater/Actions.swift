@@ -51,6 +51,17 @@ enum Actions {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first?.activate()
     }
 
+    static func focusAntigravity() {
+        let bundleId = "com.google.antigravity"
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
+            app.activate()
+            return
+        }
+        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
     static func openInFinder(cwd: String) {
         let url = URL(fileURLWithPath: cwd, isDirectory: true)
         NSWorkspace.shared.open(url)

@@ -1,6 +1,32 @@
 import Foundation
 import SwiftUI
 
+enum SessionSource: String, CaseIterable {
+    case claudeCode
+    case antigravity
+
+    var label: String {
+        switch self {
+        case .claudeCode: return "Claude Code"
+        case .antigravity: return "Antigravity"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .claudeCode: return "terminal.fill"
+        case .antigravity: return "sparkles"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .claudeCode: return Theme.amber
+        case .antigravity: return Theme.aqua
+        }
+    }
+}
+
 enum SessionState: String, CaseIterable {
     case needsYou
     case waitingTerminal
@@ -55,6 +81,7 @@ enum PendingKind: String {
 struct PendingRequest: Identifiable {
     let id: UUID
     let sessionId: String
+    var source: SessionSource = .claudeCode
     let kind: PendingKind
     let event: String
     let toolName: String
@@ -66,6 +93,7 @@ struct PendingRequest: Identifiable {
 
 struct Session: Identifiable {
     let id: String
+    var source: SessionSource = .claudeCode
     var cwd: String
     var projectName: String
     var title: String?
@@ -118,6 +146,7 @@ struct RateLimits {
 
 struct RecentSession: Identifiable {
     let id: String
+    var source: SessionSource = .claudeCode
     let cwd: String
     let projectName: String
     let title: String?

@@ -7,7 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "SpyWater",
-            path: "Sources/SpyWater"
+            path: "Sources/SpyWater",
+            linkerSettings: [
+                .linkedLibrary("sqlite3")
+            ]
         )
     ]
 )

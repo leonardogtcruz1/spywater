@@ -81,7 +81,7 @@ struct SpyWaterMascotView: View {
         case .error:
             return "Ops, erro detectado!"
         case .working:
-            return workingCount > 1 ? "\(workingCount) Claudes no gás!" : "Claude trabalhando…"
+            return workingCount > 1 ? "\(workingCount) agentes no gás!" : "Agentes trabalhando…"
         case .calm:
             return "De olho nas águas…"
         }

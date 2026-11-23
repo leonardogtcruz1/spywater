@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$ROOT_DIR/plugin/scripts/spy-hook.sh"
+AGY_HOOK="$ROOT_DIR/plugin/scripts/agy-hook.sh"
 PORT="${SPYWATER_PORT:-47821}"
 BASE="http://127.0.0.1:$PORT"
 TMP_DIR="$(mktemp -d)"
@@ -188,6 +189,95 @@ if [ "$CODE7" = "403" ]; then
   report_pass "7. Origin header 403"
 else
   report_fail "7. Origin header 403" "got HTTP $CODE7"
+fi
+
+# 8. Antigravity PreToolUse(read_file) -> immediate allow
+OUT8="$(printf '%s' '{"conversationId":"agy-test-1","workspacePaths":["/tmp/agy"],"modelName":"gemini-4-neon-high","toolCall":{"name":"read_file","args":{"Path":"/tmp/a"}}}' | /bin/sh "$AGY_HOOK" PreToolUse)"
+if python3 - "$OUT8" <<'PY'
+import json, sys
+d = json.loads(sys.argv[1])
+assert d.get("decision") == "allow", d
+PY
+then
+  report_pass "8. Antigravity PreToolUse(read_file) allow"
+else
+  report_fail "8. Antigravity PreToolUse(read_file) allow" "got: $OUT8"
+fi
+
+# 9. Antigravity PreToolUse(ask_question) -> answer via deny+reason
+OUT9="$TMP_DIR/out9.json"
+AGY_Q='{"conversationId":"agy-test-1","workspacePaths":["/tmp/agy"],"modelName":"gemini-4-neon-high","toolCall":{"name":"ask_question","args":{"questions":[{"question":"Qual DB?","options":["Postgres","SQLite"],"is_multi_select":false}]}}}'
+printf '%s' "$AGY_Q" | /bin/sh "$AGY_HOOK" PreToolUse >"$OUT9" &
+PID9=$!
+if ID9="$(poll_pending_id ask_question)"; then
+  curl -sf --max-time 3 -H 'Content-Type: application/json' -d "{\"id\":\"$ID9\",\"action\":\"answer\",\"answers\":{\"Qual DB?\":\"Postgres\"}}" "$BASE/debug/decide" >/dev/null
+  wait "$PID9" || true
+  if python3 - "$OUT9" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    got = json.load(f)
+assert got.get("decision") == "deny", got
+assert "Postgres" in got.get("reason", ""), got
+PY
+  then
+    report_pass "9. Antigravity ask_question answer"
+  else
+    report_fail "9. Antigravity ask_question answer" "unexpected output: $(cat "$OUT9")"
+  fi
+else
+  pkill -TERM -P "$PID9" 2>/dev/null || true
+  kill "$PID9" 2>/dev/null || true
+  report_fail "9. Antigravity ask_question answer" "pending item did not appear"
+fi
+
+# 10. Antigravity PreToolUse(ask_permission) -> allow (auto_approve) and release (allow)
+OUT10A="$TMP_DIR/out10a.json"
+AGY_P='{"conversationId":"agy-test-1","workspacePaths":["/tmp/agy"],"modelName":"gemini-4-neon-high","toolCall":{"name":"ask_permission","args":{"Action":"write","Target":"/etc/hosts","Reason":"Edit hosts"}}}'
+printf '%s' "$AGY_P" | /bin/sh "$AGY_HOOK" PreToolUse >"$OUT10A" &
+PID10A=$!
+OK10A=0
+if ID10A="$(poll_pending_id ask_permission)"; then
+  curl -sf --max-time 3 -H 'Content-Type: application/json' -d "{\"id\":\"$ID10A\",\"action\":\"allow\"}" "$BASE/debug/decide" >/dev/null
+  wait "$PID10A" || true
+  if python3 - "$OUT10A" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    got = json.load(f)
+assert got.get("decision") == "auto_approve", got
+PY
+  then
+    OK10A=1
+  fi
+else
+  pkill -TERM -P "$PID10A" 2>/dev/null || true
+  kill "$PID10A" 2>/dev/null || true
+fi
+
+OUT10B="$TMP_DIR/out10b.json"
+printf '%s' "$AGY_P" | /bin/sh "$AGY_HOOK" PreToolUse >"$OUT10B" &
+PID10B=$!
+OK10B=0
+if ID10B="$(poll_pending_id ask_permission)"; then
+  curl -sf --max-time 3 -H 'Content-Type: application/json' -d "{\"id\":\"$ID10B\",\"action\":\"release\"}" "$BASE/debug/decide" >/dev/null
+  wait "$PID10B" || true
+  if python3 - "$OUT10B" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    got = json.load(f)
+assert got.get("decision") == "allow", got
+PY
+  then
+    OK10B=1
+  fi
+else
+  pkill -TERM -P "$PID10B" 2>/dev/null || true
+  kill "$PID10B" 2>/dev/null || true
+fi
+
+if [ "$OK10A" -eq 1 ] && [ "$OK10B" -eq 1 ]; then
+  report_pass "10. Antigravity ask_permission allow + release"
+else
+  report_fail "10. Antigravity ask_permission allow + release" "okA=$OK10A okB=$OK10B outA=$(cat "$OUT10A" 2>/dev/null || true) outB=$(cat "$OUT10B" 2>/dev/null || true)"
 fi
 
 echo "Summary: $PASS passed, $FAIL failed"

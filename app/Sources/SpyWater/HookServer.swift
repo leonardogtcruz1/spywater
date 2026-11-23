@@ -79,6 +79,8 @@ final class HookServer {
 
     var onEvent: (([String: Any], [String: String]) -> Void)?
     var onBlockingHook: (([String: Any], [String: String], HookResponder) -> Void)?
+    var onAgyEvent: ((String, [String: Any], [String: String]) -> Void)?
+    var onAgyPreToolUse: (([String: Any], [String: String], HookResponder) -> Void)?
     var onStatusline: (([String: Any]) -> Void)?
     var onError: ((String?) -> Void)?
     var onGetPending: ((@escaping ([[String: Any]]) -> Void) -> Void)?
@@ -184,6 +186,27 @@ final class HookServer {
                 responder.respond(body: nil)
                 DispatchQueue.main.async {
                     self.onEvent?(json, headers)
+                }
+            }
+            return
+        }
+
+        if method == "POST" && path == "/hook/agy" {
+            guard let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else {
+                responder.respond(statusCode: 400, statusText: "Bad Request", body: jsonData(["error": "invalid_json"]))
+                return
+            }
+            let event = headers["x-spy-event"] ?? ""
+            if event == "PreToolUse" {
+                watchDisconnect(connection: connection, responder: responder)
+                DispatchQueue.main.async {
+                    self.onAgyPreToolUse?(json, headers, responder)
+                }
+            } else {
+                let ack = (event == "Stop") ? jsonData(["decision": "allow"]) : jsonData([:])
+                responder.respond(body: ack)
+                DispatchQueue.main.async {
+                    self.onAgyEvent?(event, json, headers)
                 }
             }
             return

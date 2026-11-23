@@ -1,10 +1,37 @@
 import SwiftUI
 
+private enum SourceFilter: String, CaseIterable {
+    case all = "Todos"
+    case claude = "Claude Code"
+    case agy = "Antigravity"
+
+    func matches(_ source: SessionSource) -> Bool {
+        switch self {
+        case .all: return true
+        case .claude: return source == .claudeCode
+        case .agy: return source == .antigravity
+        }
+    }
+}
+
+private final class SourceFilterState: ObservableObject {
+    @Published var selected: SourceFilter = .all
+}
+
 struct DashboardView: View {
     @EnvironmentObject var store: SessionStore
+    @StateObject private var filter = SourceFilterState()
+
+    private var allLiveSessions: [Session] {
+        store.sortedSessions
+    }
 
     private var liveSessions: [Session] {
-        store.sortedSessions
+        allLiveSessions.filter { filter.selected.matches($0.source) }
+    }
+
+    private var filteredRecent: [RecentSession] {
+        store.recent.filter { filter.selected.matches($0.source) }
     }
 
     private var needsYouSessions: [Session] {
@@ -81,7 +108,7 @@ struct DashboardView: View {
                             Text("SpyWater")
                                 .font(.title2.weight(.bold))
                                 .foregroundStyle(Theme.brandGradient)
-                            Text("Monitor ao vivo do Claude Code")
+                            Text("Monitor ao vivo · Claude Code & Antigravity")
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.55))
                         }
@@ -91,14 +118,15 @@ struct DashboardView: View {
                         HStack(spacing: 8) {
                             HeaderPill(
                                 icon: "terminal.fill",
-                                text: "\(liveSessions.count) ativa\(liveSessions.count == 1 ? "" : "s")",
+                                text: "\(allLiveSessions.count) ativa\(allLiveSessions.count == 1 ? "" : "s")",
                                 tint: Theme.aqua
                             )
 
-                            if !workingSessions.isEmpty {
+                            let allWorking = allLiveSessions.filter { store.effectiveState(for: $0) == .working }.count
+                            if allWorking > 0 {
                                 HStack(spacing: 6) {
                                     WorkingWaveBars(tint: Theme.teal)
-                                    Text("\(workingSessions.count) trabalhando")
+                                    Text("\(allWorking) trabalhando")
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(Theme.teal)
                                 }
@@ -152,10 +180,12 @@ struct DashboardView: View {
                         statuslineInstalled: store.statuslineInstalled,
                         now: store.now
                     )
+
+                    filterBar
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
-                .padding(.bottom, 12)
+                .padding(.bottom, 10)
 
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
@@ -203,15 +233,15 @@ struct DashboardView: View {
                             }
                         }
 
-                        if !store.recent.isEmpty {
+                        if !filteredRecent.isEmpty {
                             SectionHeaderView(
                                 title: "Recentes — retomar",
-                                count: store.recent.count,
+                                count: filteredRecent.count,
                                 tint: Theme.violet,
                                 icon: "clock.arrow.circlepath"
                             )
                             VStack(spacing: 8) {
-                                ForEach(store.recent) { item in
+                                ForEach(filteredRecent) { item in
                                     RecentRow(item: item)
                                 }
                             }
@@ -226,13 +256,59 @@ struct DashboardView: View {
             SpyWaterMascotView(
                 mood: mascotMood,
                 attentionCount: store.attentionCount,
-                workingCount: workingSessions.count,
+                workingCount: allLiveSessions.filter { store.effectiveState(for: $0) == .working }.count,
                 now: store.now
             )
             .padding(.trailing, 18)
             .padding(.bottom, 14)
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var filterBar: some View {
+        HStack(spacing: 8) {
+            ForEach(SourceFilter.allCases, id: \.self) { mode in
+                let isSelected = filter.selected == mode
+                let count = allLiveSessions.filter { mode.matches($0.source) }.count
+                let tint: Color = {
+                    switch mode {
+                    case .all: return Theme.violet
+                    case .claude: return Theme.amber
+                    case .agy: return Theme.aqua
+                    }
+                }()
+
+                Button {
+                    filter.selected = mode
+                } label: {
+                    HStack(spacing: 5) {
+                        if mode == .claude {
+                            Image(systemName: "terminal.fill").font(.caption2)
+                        } else if mode == .agy {
+                            Image(systemName: "sparkles").font(.caption2)
+                        }
+                        Text(mode.rawValue)
+                            .font(.caption.weight(isSelected ? .bold : .medium))
+                        Text("\(count)")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(tint.opacity(isSelected ? 0.30 : 0.14))
+                            .clipShape(Capsule())
+                    }
+                    .foregroundStyle(isSelected ? tint : .white.opacity(0.65))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(isSelected ? tint.opacity(0.16) : Color.white.opacity(0.05))
+                    .overlay(
+                        Capsule().stroke(isSelected ? tint.opacity(0.55) : Color.white.opacity(0.10), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
     }
 
     private var emptyStateCard: some View {
@@ -245,14 +321,14 @@ struct DashboardView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.brandGradient)
             }
-            Text("Nenhuma sessão do Claude Code ativa")
+            Text("Nenhuma sessão ativa")
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("Abra o `claude` em um terminal para acompanhar permissões, perguntas, contexto e uso do plano em tempo real.")
+            Text("Nenhuma sessão ativa. Abra o `claude` no terminal ou uma conversa no Antigravity.")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.65))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 440)
+                .frame(maxWidth: 460)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
@@ -321,6 +397,14 @@ private struct RecentRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
+                    Label(item.source.label, systemImage: item.source.icon)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1.5)
+                        .background(item.source.color.opacity(0.16))
+                        .foregroundStyle(item.source.color)
+                        .clipShape(Capsule())
+
                     Text(item.projectName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
@@ -354,15 +438,27 @@ private struct RecentRow: View {
 
             Spacer()
 
-            Button {
-                Actions.resume(sessionId: item.id, cwd: item.cwd, terminal: store.terminalApp)
-            } label: {
-                Label("Retomar", systemImage: "play.fill")
-                    .font(.caption.weight(.semibold))
+            if item.source == .antigravity {
+                Button {
+                    Actions.focusAntigravity()
+                } label: {
+                    Label("Abrir", systemImage: "arrow.up.forward.app.fill")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.aqua)
+                .controlSize(.small)
+            } else {
+                Button {
+                    Actions.resume(sessionId: item.id, cwd: item.cwd, terminal: store.terminalApp)
+                } label: {
+                    Label("Retomar", systemImage: "play.fill")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.violet)
+                .controlSize(.small)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.violet)
-            .controlSize(.small)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

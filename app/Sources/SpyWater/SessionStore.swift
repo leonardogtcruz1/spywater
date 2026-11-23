@@ -9,6 +9,7 @@ final class SessionStore: ObservableObject {
     @Published var rateLimits: RateLimits?
     @Published var localUsage: LocalPlanUsage?
     @Published var statuslineInstalled: Bool = false
+    @Published var agyHooksInstalled: Bool = false
     @Published var recent: [RecentSession] = []
     @Published var serverError: String?
     @Published var now: Date = Date()
@@ -24,6 +25,11 @@ final class SessionStore: ObservableObject {
     private var transcriptTimer: Timer?
     private var recentTimer: Timer?
     private var usageTimer: Timer?
+    private var agySyncTimer: Timer?
+
+    private var claudeRecent: [RecentSession] = []
+    private var agyRecent: [RecentSession] = []
+    private var agyLastHookAt: [String: Date] = [:]
 
     init() {
         ensureDefaults()
@@ -34,6 +40,7 @@ final class SessionStore: ObservableObject {
         startTimers()
         refreshRecent()
         refreshLocalUsage()
+        syncAntigravitySummaries()
     }
 
     private func ensureDefaults() {
@@ -84,6 +91,12 @@ final class SessionStore: ObservableObject {
         server.onBlockingHook = { [weak self] payload, headers, responder in
             self?.handleBlockingHook(payload, headers: headers, responder: responder)
         }
+        server.onAgyEvent = { [weak self] event, payload, headers in
+            self?.handleAgyEvent(event, payload: payload, headers: headers)
+        }
+        server.onAgyPreToolUse = { [weak self] payload, headers, responder in
+            self?.handleAgyPreToolUse(payload, headers: headers, responder: responder)
+        }
         server.onStatusline = { [weak self] payload in
             self?.handleStatusline(payload)
         }
@@ -93,6 +106,7 @@ final class SessionStore: ObservableObject {
                 [
                     "id": req.id.uuidString,
                     "sessionId": req.sessionId,
+                    "source": req.source.rawValue,
                     "kind": req.kind.rawValue,
                     "toolName": req.toolName
                 ]
@@ -104,6 +118,7 @@ final class SessionStore: ObservableObject {
             let items: [[String: Any]] = self.sessions.values.map { s in
                 [
                     "id": s.id,
+                    "source": s.source.rawValue,
                     "state": self.effectiveState(for: s).rawValue,
                     "cwd": s.cwd,
                     "model": s.model ?? "",
@@ -171,6 +186,11 @@ final class SessionStore: ObservableObject {
         livenessTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.checkLiveness()
+            }
+        }
+        agySyncTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.syncAntigravitySummaries()
             }
         }
         transcriptTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
@@ -252,6 +272,8 @@ final class SessionStore: ObservableObject {
         pending.filter { $0.sessionId == sessionId }.map(\.createdAt).min()
     }
 
+    // MARK: - Claude Code Events
+
     @discardableResult
     private func upsertSession(from payload: [String: Any], headers: [String: String] = [:]) -> String? {
         guard let id = payload.nonEmptyStr("session_id") else { return nil }
@@ -262,6 +284,7 @@ final class SessionStore: ObservableObject {
 
         var session = sessions[id] ?? Session(
             id: id,
+            source: .claudeCode,
             cwd: payloadCwd ?? NSHomeDirectory(),
             projectName: Self.projectName(from: payloadCwd ?? NSHomeDirectory()),
             state: .idle,
@@ -270,6 +293,7 @@ final class SessionStore: ObservableObject {
             lastEventAt: timestamp
         )
 
+        session.source = .claudeCode
         if let cwd = payloadCwd {
             session.cwd = cwd
             session.projectName = Self.projectName(from: cwd)
@@ -296,7 +320,7 @@ final class SessionStore: ObservableObject {
         session.lastEventAt = timestamp
 
         sessions[id] = session
-        recent.removeAll { $0.id == id }
+        rebuildMergedRecent()
         return id
     }
 
@@ -437,6 +461,7 @@ final class SessionStore: ObservableObject {
         let req = PendingRequest(
             id: UUID(),
             sessionId: id,
+            source: .claudeCode,
             kind: kind,
             event: event,
             toolName: toolName,
@@ -462,6 +487,162 @@ final class SessionStore: ObservableObject {
         notifier.notifyPending(req, projectName: projectName, summary: summary)
     }
 
+    // MARK: - Antigravity Events
+
+    @discardableResult
+    private func upsertAgySession(from payload: [String: Any], headers: [String: String] = [:]) -> String? {
+        guard let id = payload.nonEmptyStr("conversationId") else { return nil }
+        let timestamp = Date()
+        let wsPaths = payload["workspacePaths"] as? [String]
+        let firstWorkspace = wsPaths?.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        let cwd = firstWorkspace ?? sessions[id]?.cwd ?? NSHomeDirectory()
+
+        var session = sessions[id] ?? Session(
+            id: id,
+            source: .antigravity,
+            cwd: cwd,
+            projectName: Self.projectName(from: cwd),
+            state: .working,
+            activity: "Conversa ativa",
+            startedAt: timestamp,
+            lastEventAt: timestamp
+        )
+
+        session.source = .antigravity
+        if let firstWorkspace {
+            session.cwd = firstWorkspace
+            session.projectName = Self.projectName(from: firstWorkspace)
+        }
+        if let rawTP = payload.nonEmptyStr("transcriptPath") {
+            session.transcriptPath = NSString(string: rawTP).expandingTildeInPath
+        }
+        if let m = payload.nonEmptyStr("modelName") {
+            session.model = formatModelName(m)
+        }
+        if let lastInput = payload.nonEmptyStr("lastUserInput") {
+            session.lastPrompt = lastInput
+        }
+        session.lastEventAt = timestamp
+        agyLastHookAt[id] = timestamp
+
+        sessions[id] = session
+        rebuildMergedRecent()
+        return id
+    }
+
+    private func handleAgyEvent(_ event: String, payload: [String: Any], headers: [String: String]) {
+        guard let id = upsertAgySession(from: payload, headers: headers) else { return }
+
+        switch event {
+        case "SessionStart":
+            sessions[id]?.state = .idle
+            sessions[id]?.activity = "Conversa iniciada"
+            refreshAgyTranscript(for: id)
+
+        case "PreInvocation":
+            sessions[id]?.state = .working
+            sessions[id]?.activity = "Pensando…"
+
+        case "PostInvocation":
+            refreshAgyTranscript(for: id)
+
+        case "PostToolUse":
+            let toolCall = payload.dict("toolCall") ?? [:]
+            let toolName = toolCall.nonEmptyStr("name") ?? ""
+            let err = payload.nonEmptyStr("error")
+            sessions[id]?.state = .working
+            if let err {
+                sessions[id]?.activity = "Erro em \(toolName.isEmpty ? "ferramenta" : toolName): \(err)"
+            } else {
+                sessions[id]?.activity = "Pensando…"
+            }
+            let stale = pending.filter {
+                $0.sessionId == id && $0.source == .antigravity && $0.kind == .permission && $0.toolName == toolName
+            }
+            for req in stale {
+                release(req)
+            }
+
+        case "Stop":
+            let fullyIdle = payload.bool("fullyIdle") ?? true
+            let reason = payload.nonEmptyStr("terminationReason") ?? ""
+            let err = payload.nonEmptyStr("error")
+            if !fullyIdle {
+                sessions[id]?.state = .working
+                sessions[id]?.activity = "Aguardando tarefas em segundo plano"
+            } else if reason == "error" || err != nil {
+                sessions[id]?.state = .error
+                sessions[id]?.activity = err ?? "Erro na execução"
+            } else {
+                sessions[id]?.state = .yourTurn
+                sessions[id]?.activity = "Aguardando sua instrução"
+                if let s = sessions[id] {
+                    notifier.notifyYourTurn(session: s)
+                }
+            }
+            refreshAgyTranscript(for: id)
+            refreshLocalUsage()
+
+        default:
+            break
+        }
+    }
+
+    private func handleAgyPreToolUse(_ payload: [String: Any], headers: [String: String], responder: HookResponder) {
+        guard let id = upsertAgySession(from: payload, headers: headers) else {
+            responder.respond(body: jsonData(["decision": "allow"]))
+            return
+        }
+
+        let toolCall = payload.dict("toolCall") ?? [:]
+        let toolName = toolCall.nonEmptyStr("name") ?? "Tool"
+        let toolInput = toolCall.dict("args") ?? [:]
+        let summary = Self.describeTool(toolName, input: toolInput)
+
+        sessions[id]?.state = .working
+        sessions[id]?.activity = summary
+
+        let shouldGate: PendingKind?
+        if toolName == "ask_question" {
+            shouldGate = .question
+        } else if toolName == "ask_permission" {
+            shouldGate = .permission
+        } else if toolName == "run_command" && UserDefaults.standard.bool(forKey: "agyInterceptCommands") {
+            shouldGate = .permission
+        } else {
+            shouldGate = nil
+        }
+
+        guard let kind = shouldGate else {
+            responder.respond(body: jsonData(["decision": "allow"]))
+            return
+        }
+
+        let req = PendingRequest(
+            id: UUID(),
+            sessionId: id,
+            source: .antigravity,
+            kind: kind,
+            event: "PreToolUse",
+            toolName: toolName,
+            toolInput: toolInput,
+            suggestions: [],
+            createdAt: Date(),
+            responder: responder
+        )
+
+        pending.append(req)
+        let reqId = req.id
+        responder.setOnClientGone { [weak self] in
+            self?.removePending(id: reqId)
+        }
+
+        let projectName = sessions[id]?.projectName ?? "Antigravity"
+        notifier.notifyPending(req, projectName: projectName, summary: summary)
+    }
+
+    // MARK: - Statusline
+
     private func handleStatusline(_ payload: [String: Any]) {
         if let sid = payload.nonEmptyStr("session_id") {
             let timestamp = Date()
@@ -471,6 +652,7 @@ final class SessionStore: ObservableObject {
                     ?? NSHomeDirectory()
                 sessions[sid] = Session(
                     id: sid,
+                    source: .claudeCode,
                     cwd: cwd,
                     projectName: Self.projectName(from: cwd),
                     state: .idle,
@@ -478,7 +660,7 @@ final class SessionStore: ObservableObject {
                     startedAt: timestamp,
                     lastEventAt: timestamp
                 )
-                recent.removeAll { $0.id == sid }
+                rebuildMergedRecent()
             }
 
             if let cwd = payload.dict("workspace")?.nonEmptyStr("current_dir") ?? payload.nonEmptyStr("cwd") {
@@ -548,6 +730,15 @@ final class SessionStore: ObservableObject {
     // MARK: - Decisions
 
     func allow(_ req: PendingRequest) {
+        if req.source == .antigravity {
+            req.responder.respond(body: jsonData([
+                "decision": "auto_approve",
+                "reason": "Aprovado pelo usuário no SpyWater"
+            ]))
+            removePending(id: req.id)
+            return
+        }
+
         let bodyObj: [String: Any]
         if req.event == "PreToolUse" {
             var hookOut: [String: Any] = [
@@ -575,6 +766,10 @@ final class SessionStore: ObservableObject {
     }
 
     func allowAlways(_ req: PendingRequest, suggestion: [String: Any]) {
+        if req.source == .antigravity {
+            allow(req)
+            return
+        }
         let decision: [String: Any] = {
             var d: [String: Any] = [
                 "behavior": "allow",
@@ -598,6 +793,15 @@ final class SessionStore: ObservableObject {
     func deny(_ req: PendingRequest, message: String? = nil) {
         let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let reason = trimmed.isEmpty ? "Negado pelo usuário no SpyWater" : trimmed
+
+        if req.source == .antigravity {
+            req.responder.respond(body: jsonData([
+                "decision": "deny",
+                "reason": reason
+            ]))
+            removePending(id: req.id)
+            return
+        }
 
         let bodyObj: [String: Any]
         if req.event == "PreToolUse" {
@@ -625,6 +829,20 @@ final class SessionStore: ObservableObject {
     }
 
     func answer(_ req: PendingRequest, answers: [String: String]) {
+        if req.source == .antigravity {
+            let summaryLines = answers
+                .sorted { $0.key < $1.key }
+                .map { "- \($0.key): \($0.value)" }
+                .joined(separator: "\n")
+            let reason = "Resposta do usuário (via SpyWater):\n\(summaryLines)"
+            req.responder.respond(body: jsonData([
+                "decision": "deny",
+                "reason": reason
+            ]))
+            removePending(id: req.id)
+            return
+        }
+
         let originalQuestions = req.toolInput.anyArr("questions") ?? []
         let updatedInput: [String: Any] = [
             "questions": originalQuestions,
@@ -656,7 +874,11 @@ final class SessionStore: ObservableObject {
     }
 
     func release(_ req: PendingRequest) {
-        req.responder.respond(body: nil)
+        if req.source == .antigravity {
+            req.responder.respond(body: jsonData(["decision": "allow"]))
+        } else {
+            req.responder.respond(body: nil)
+        }
         removePending(id: req.id)
     }
 
@@ -669,7 +891,7 @@ final class SessionStore: ObservableObject {
 
     private func checkLiveness() {
         for (id, var session) in sessions {
-            guard session.state != .ended, let pid = session.pid else { continue }
+            guard session.source == .claudeCode, session.state != .ended, let pid = session.pid else { continue }
             if !Self.isClaudeProcess(pid) {
                 if kill(pid, 0) != 0 && errno == ESRCH {
                     session.state = .ended
@@ -689,7 +911,11 @@ final class SessionStore: ObservableObject {
 
     private func refreshAllLiveTranscripts() {
         for (id, session) in sessions where effectiveState(for: session) != .ended {
-            refreshTranscript(for: id)
+            if session.source == .antigravity {
+                refreshAgyTranscript(for: id)
+            } else {
+                refreshTranscript(for: id)
+            }
         }
     }
 
@@ -713,15 +939,127 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func refreshAgyTranscript(for sessionId: String) {
+        guard let path = sessions[sessionId]?.transcriptPath, !path.isEmpty else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let snap = AntigravityScanner.readTranscriptTail(path: path) else { return }
+            DispatchQueue.main.async {
+                guard let self, var s = self.sessions[sessionId] else { return }
+                if let m = snap.model { s.model = m }
+                if s.lastPrompt == nil, let lp = snap.lastPrompt { s.lastPrompt = lp }
+                if let tok = snap.contextTokens { s.contextTokens = tok }
+                if let win = snap.contextWindow { s.contextWindow = win }
+                if let tok = s.contextTokens, let win = s.contextWindow, win > 0 {
+                    s.contextPct = (Double(tok) / Double(win)) * 100.0
+                }
+                let hookAge = Date().timeIntervalSince(self.agyLastHookAt[sessionId] ?? .distantPast)
+                if hookAge > 4.0, s.state == .working, let act = snap.lastActivity {
+                    s.activity = act
+                }
+                self.sessions[sessionId] = s
+            }
+        }
+    }
+
+    func syncAntigravitySummaries() {
+        AntigravityScanner.scanSummaries { [weak self] summaries in
+            guard let self else { return }
+            let current = Date()
+            var nextAgyRecent: [RecentSession] = []
+
+            for summary in summaries {
+                if summary.isRunning {
+                    var session = self.sessions[summary.id] ?? Session(
+                        id: summary.id,
+                        source: .antigravity,
+                        cwd: summary.cwd,
+                        projectName: summary.projectName,
+                        title: summary.title.isEmpty ? nil : summary.title,
+                        state: .working,
+                        activity: "Trabalhando no Antigravity…",
+                        transcriptPath: summary.transcriptPath,
+                        startedAt: summary.lastModifiedAt,
+                        lastEventAt: summary.lastModifiedAt,
+                        subagentsRunning: summary.runningSubagents
+                    )
+                    session.source = .antigravity
+                    session.cwd = summary.cwd
+                    session.projectName = summary.projectName
+                    if !summary.title.isEmpty { session.title = summary.title }
+                    session.subagentsRunning = summary.runningSubagents
+                    session.transcriptPath = summary.transcriptPath
+
+                    let hookAge = current.timeIntervalSince(self.agyLastHookAt[summary.id] ?? .distantPast)
+                    let hasPending = self.pending.contains(where: { $0.sessionId == summary.id })
+                    if hookAge > 5.0 && !hasPending {
+                        session.state = .working
+                        if summary.lastModifiedAt > session.lastEventAt {
+                            session.lastEventAt = summary.lastModifiedAt
+                        }
+                    }
+
+                    self.sessions[summary.id] = session
+                    self.refreshAgyTranscript(for: summary.id)
+                } else {
+                    if var existing = self.sessions[summary.id], existing.source == .antigravity {
+                        let hasPending = self.pending.contains(where: { $0.sessionId == summary.id })
+                        if !hasPending && current.timeIntervalSince(existing.lastEventAt) > 15 {
+                            if current.timeIntervalSince(summary.lastModifiedAt) < 15 * 60 {
+                                if existing.state == .working {
+                                    existing.state = .yourTurn
+                                    existing.activity = "Aguardando sua instrução"
+                                }
+                            } else if current.timeIntervalSince(summary.lastModifiedAt) >= 20 * 60 {
+                                existing.state = .ended
+                                existing.activity = "Conversa encerrada"
+                            }
+                            self.sessions[summary.id] = existing
+                        }
+                    }
+
+                    let cachedModel = self.sessions[summary.id]?.model
+                    let cachedPrompt = self.sessions[summary.id]?.lastPrompt
+                    nextAgyRecent.append(RecentSession(
+                        id: summary.id,
+                        source: .antigravity,
+                        cwd: summary.cwd,
+                        projectName: summary.projectName,
+                        title: summary.title.isEmpty ? nil : summary.title,
+                        lastPrompt: cachedPrompt,
+                        model: cachedModel,
+                        transcriptPath: summary.transcriptPath,
+                        lastActivityAt: summary.lastModifiedAt,
+                        costUSD: nil
+                    ))
+                }
+            }
+
+            self.agyRecent = nextAgyRecent
+            self.rebuildMergedRecent()
+        }
+    }
+
     func refreshRecent() {
         let liveIds = Set(sessions.values.filter { effectiveState(for: $0) != .ended }.map(\.id))
         TranscriptReader.scanRecent(excluding: liveIds) { [weak self] items in
-            self?.recent = items
+            guard let self else { return }
+            self.claudeRecent = items
+            self.rebuildMergedRecent()
         }
+        syncAntigravitySummaries()
+    }
+
+    private func rebuildMergedRecent() {
+        let liveIds = Set(sessions.values.filter { effectiveState(for: $0) != .ended }.map(\.id))
+        let combined = (claudeRecent + agyRecent)
+            .filter { !liveIds.contains($0.id) }
+            .sorted { $0.lastActivityAt > $1.lastActivityAt }
+        recent = Array(combined.prefix(40))
     }
 
     func refreshLocalUsage() {
         statuslineInstalled = Self.checkStatuslineInstalled()
+        agyHooksInstalled = Self.checkAgyHooksInstalled()
         usageTracker.scan { [weak self] usage in
             self?.localUsage = usage
         }
@@ -735,6 +1073,14 @@ final class SessionStore: ObservableObject {
               let cmd = sl["command"] as? String
         else { return false }
         return cmd.contains("statusline-tee.sh")
+    }
+
+    static func checkAgyHooksInstalled() -> Bool {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/config/hooks.json")
+        guard let data = try? Data(contentsOf: url),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return false }
+        return obj["spywater"] != nil
     }
 
     private static var rateLimitsCacheURL: URL {
@@ -823,36 +1169,69 @@ final class SessionStore: ObservableObject {
         return comp.isEmpty ? cwd : comp
     }
 
-    static func describeTool(_ name: String, input: [String: Any]) -> String {
+    nonisolated static func describeTool(_ name: String, input: [String: Any]) -> String {
         switch name {
         case "Bash":
             let cmd = input.str("command") ?? ""
             let firstLine = cmd.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? cmd
             let truncated = firstLine.count > 80 ? String(firstLine.prefix(80)) + "…" : firstLine
             return truncated.isEmpty ? "Bash" : "$ \(truncated)"
+        case "run_command":
+            let cmd = input.str("CommandLine") ?? ""
+            let firstLine = cmd.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? cmd
+            let truncated = firstLine.count > 80 ? String(firstLine.prefix(80)) + "…" : firstLine
+            return truncated.isEmpty ? "Comando" : "$ \(truncated)"
         case "Edit", "Write", "MultiEdit", "NotebookEdit":
             let filePath = input.str("file_path") ?? input.str("notebook_path") ?? ""
+            let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
+            return base.isEmpty ? "Editando arquivo" : "Editando \(base)"
+        case "edit_file", "replace_file_content", "multi_replace_file_content", "write_file", "write_to_file":
+            let filePath = input.str("Path") ?? input.str("TargetFile") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
             return base.isEmpty ? "Editando arquivo" : "Editando \(base)"
         case "Read":
             let filePath = input.str("file_path") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
             return base.isEmpty ? "Lendo arquivo" : "Lendo \(base)"
+        case "read_file", "view_file":
+            let filePath = input.str("Path") ?? input.str("AbsolutePath") ?? ""
+            let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
+            return base.isEmpty ? "Lendo arquivo" : "Lendo \(base)"
         case "Grep", "Glob":
             let pat = input.str("pattern") ?? ""
             let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
             return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
-        case "WebFetch", "WebSearch":
-            let q = input.str("url") ?? input.str("query") ?? ""
+        case "grep_search":
+            let pat = input.str("Query") ?? ""
+            let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
+            return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
+        case "find_by_name":
+            let pat = input.str("Pattern") ?? ""
+            let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
+            return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
+        case "list_dir":
+            let dirPath = input.str("DirectoryPath") ?? ""
+            let base = dirPath.isEmpty ? "" : URL(fileURLWithPath: dirPath).lastPathComponent
+            return base.isEmpty ? "Listando pasta" : "Listando \(base)"
+        case "WebFetch", "WebSearch", "search_web", "read_url_content":
+            let q = input.str("url") ?? input.str("Url") ?? input.str("query") ?? ""
             let trunc = q.count > 60 ? String(q.prefix(60)) + "…" : q
             return trunc.isEmpty ? "Web" : "Web: \(trunc)"
         case "Agent", "Task":
             let desc = input.str("description") ?? ""
             return desc.isEmpty ? "Subagente" : "Subagente: \(desc)"
-        case "AskUserQuestion":
+        case "invoke_subagent":
+            let role = input.str("Role") ?? ""
+            return role.isEmpty ? "Subagente" : "Subagente: \(role)"
+        case "AskUserQuestion", "ask_question":
             return "Aguardando resposta"
         case "ExitPlanMode":
             return "Plano pronto para aprovação"
+        case "ask_permission":
+            let action = input.nonEmptyStr("Action") ?? ""
+            let target = input.nonEmptyStr("Target") ?? ""
+            let combined = [action, target].filter { !$0.isEmpty }.joined(separator: " ")
+            return combined.isEmpty ? "Solicitando permissão" : "Permissão: \(combined)"
         default:
             if name.hasPrefix("mcp__") {
                 let parts = name.dropFirst(5).split(separator: "__", maxSplits: 1)

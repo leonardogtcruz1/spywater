@@ -43,6 +43,14 @@ struct SessionRow: View {
                         .foregroundStyle(state.color)
                         .clipShape(Capsule())
 
+                    Label(session.source.label, systemImage: session.source.icon)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(session.source.color.opacity(0.15))
+                        .foregroundStyle(session.source.color)
+                        .clipShape(Capsule())
+
                     Text(session.projectName)
                         .font(.headline)
                         .foregroundStyle(.white)
@@ -145,8 +153,14 @@ struct SessionRow: View {
             }
         }
         .contextMenu {
-            Button("Focar terminal") {
-                Actions.focusTerminal(termProgram: session.termProgram)
+            if session.source == .antigravity {
+                Button("Focar Antigravity") {
+                    Actions.focusAntigravity()
+                }
+            } else {
+                Button("Focar terminal") {
+                    Actions.focusTerminal(termProgram: session.termProgram)
+                }
             }
             Button("Abrir pasta") {
                 Actions.openInFinder(cwd: session.cwd)

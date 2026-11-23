@@ -150,7 +150,7 @@ private struct CompactPendingRow: View {
                     .tint(Theme.amber)
                     .controlSize(.small)
                     Spacer()
-                    Button("Terminal") {
+                    Button(request.source == .antigravity ? "Antigravity" : "Terminal") {
                         store.release(request)
                     }
                     .buttonStyle(.borderless)
