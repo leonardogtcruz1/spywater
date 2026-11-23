@@ -1,0 +1,14 @@
+{
+  "name": "spywater-local",
+  "description": "SpyWater local marketplace",
+  "owner": {
+    "name": "Leonardo Cruz"
+  },
+  "plugins": [
+    {
+      "name": "spywater",
+      "source": "./plugin",
+      "description": "Envia eventos das sessões do Claude Code para o app SpyWater"
+    }
+  ]
+}
