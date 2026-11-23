@@ -153,7 +153,7 @@ enum TranscriptReader {
                     projectName: projectName.isEmpty ? cwd : projectName,
                     title: snap.title,
                     lastPrompt: snap.lastPrompt,
-                    model: snap.model,
+                    model: snap.model.map(formatModelName),
                     transcriptPath: item.url.path,
                     lastActivityAt: item.mtime,
                     costUSD: snap.costUSD

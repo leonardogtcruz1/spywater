@@ -35,12 +35,12 @@ enum SessionState: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .needsYou: return .red
-        case .waitingTerminal: return .orange
-        case .yourTurn: return .yellow
-        case .error: return .red
-        case .working: return .blue
-        case .idle: return .gray
+        case .needsYou: return Theme.coral
+        case .waitingTerminal: return Theme.amber
+        case .yourTurn: return Theme.amber
+        case .error: return Theme.coral
+        case .working: return Theme.aqua
+        case .idle: return Theme.teal.opacity(0.75)
         case .ended: return .secondary
         }
     }
@@ -109,6 +109,10 @@ struct RateLimits {
     var fiveHourReset: Date?
     var sevenDayPct: Double?
     var sevenDayReset: Date?
+    var spendLimitPct: Double?
+    var spendLimitReset: Date?
+    var spendUsedUSD: Double?
+    var spendLimitUSD: Double?
     var updatedAt: Date
 }
 

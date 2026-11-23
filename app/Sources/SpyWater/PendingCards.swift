@@ -59,15 +59,15 @@ struct PermissionCard: View {
             HStack {
                 Label(request.toolName, systemImage: "hand.raised.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.coral)
                 Text(SessionStore.describeTool(request.toolName, input: request.toolInput))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.75))
                     .lineLimit(1)
                 Spacer()
                 Text(timerText)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.60))
             }
 
             toolDetailView
@@ -83,7 +83,7 @@ struct PermissionCard: View {
                         store.deny(request, message: ui.denyMessage)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.red)
+                    .tint(Theme.coral)
                     Button("Cancelar") {
                         ui.showDenyField = false
                     }
@@ -97,14 +97,14 @@ struct PermissionCard: View {
                         store.allow(request)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .tint(Theme.emerald)
                     .keyboardShortcut(.return, modifiers: .command)
                 } else {
                     Button("Permitir") {
                         store.allow(request)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .tint(Theme.emerald)
                 }
 
                 if let suggestion = request.suggestions.first, let label = firstSuggestionLabel {
@@ -119,7 +119,7 @@ struct PermissionCard: View {
                     store.deny(request)
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
+                .tint(Theme.coral)
 
                 Button("Negar com instrução…") {
                     ui.showDenyField.toggle()
@@ -132,17 +132,17 @@ struct PermissionCard: View {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.65))
                 .font(.caption)
             }
         }
         .padding(12)
-        .background(Color.red.opacity(0.06))
+        .background(Theme.coral.opacity(0.11))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.red.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Theme.coral.opacity(0.45), lineWidth: 1)
         )
-        .cornerRadius(8)
+        .cornerRadius(10)
     }
 
     private var timerText: String {
@@ -160,17 +160,18 @@ struct PermissionCard: View {
                 if let desc = request.toolInput.nonEmptyStr("description") {
                     Text(desc)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.70))
                 }
                 let cmd = request.toolInput.str("command") ?? ""
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(cmd)
                         .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.95))
                         .textSelection(.enabled)
                         .padding(8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .textBackgroundColor))
+                .background(Theme.insetSurface)
                 .cornerRadius(6)
             }
 
@@ -193,10 +194,10 @@ struct PermissionCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(path)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.75))
                 HStack(alignment: .top, spacing: 8) {
-                    DiffBlock(title: "Remover", text: truncateLines(oldStr, max: 30), tint: .red)
-                    DiffBlock(title: "Adicionar", text: truncateLines(newStr, max: 30), tint: .green)
+                    DiffBlock(title: "Remover", text: truncateLines(oldStr, max: 30), tint: Theme.coral)
+                    DiffBlock(title: "Adicionar", text: truncateLines(newStr, max: 30), tint: Theme.emerald)
                 }
             }
 
@@ -206,16 +207,17 @@ struct PermissionCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(path)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.75))
                 ScrollView {
                     Text(truncateLines(content, max: 30))
                         .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.90))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                         .padding(8)
                 }
                 .frame(maxHeight: 180)
-                .background(Color(nsColor: .textBackgroundColor))
+                .background(Theme.insetSurface)
                 .cornerRadius(6)
             }
 
@@ -224,12 +226,13 @@ struct PermissionCard: View {
             ScrollView {
                 Text(text)
                     .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.90))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(8)
             }
             .frame(maxHeight: 160)
-            .background(Color(nsColor: .textBackgroundColor))
+            .background(Theme.insetSurface)
             .cornerRadius(6)
         }
     }
@@ -254,12 +257,13 @@ private struct DiffBlock: View {
             ScrollView {
                 Text(text.isEmpty ? "(vazio)" : text)
                     .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.90))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(6)
             }
             .frame(maxHeight: 160)
-            .background(tint.opacity(0.08))
+            .background(tint.opacity(0.10))
             .cornerRadius(6)
         }
         .frame(maxWidth: .infinity)
@@ -330,11 +334,11 @@ struct QuestionCard: View {
             HStack {
                 Label("Pergunta do Claude", systemImage: "questionmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.amber)
                 Spacer()
                 Text("esperando há \(max(0, Int(store.now.timeIntervalSince(request.createdAt)))) s")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.60))
             }
 
             ForEach(Array(questions.enumerated()), id: \.offset) { idx, q in
@@ -352,6 +356,7 @@ struct QuestionCard: View {
                     store.answer(request, answers: answers)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(Theme.amber)
                 .disabled(!allAnswered)
 
                 Spacer()
@@ -360,17 +365,17 @@ struct QuestionCard: View {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.65))
                 .font(.caption)
             }
         }
         .padding(12)
-        .background(Color.orange.opacity(0.06))
+        .background(Theme.amber.opacity(0.10))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Theme.amber.opacity(0.45), lineWidth: 1)
         )
-        .cornerRadius(8)
+        .cornerRadius(10)
     }
 }
 
@@ -392,11 +397,13 @@ private struct QuestionBlock: View {
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.15))
+                        .background(Theme.amber.opacity(0.22))
+                        .foregroundStyle(Theme.amber)
                         .cornerRadius(4)
                 }
                 Text(questionText)
                     .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white)
             }
 
             ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
@@ -409,14 +416,14 @@ private struct QuestionBlock: View {
             HStack(spacing: 6) {
                 Text("Outro:")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.70))
                 TextField("Digite sua resposta…", text: ui.bindingForOther(index: index, isMulti: isMulti))
                     .textFieldStyle(.roundedBorder)
             }
         }
-        .padding(8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
+        .padding(10)
+        .background(Theme.insetSurface)
+        .cornerRadius(8)
     }
 
     @ViewBuilder
@@ -439,22 +446,22 @@ private struct QuestionBlock: View {
                 Image(systemName: isMulti
                       ? (isSelected ? "checkmark.square.fill" : "square")
                       : (isSelected ? "largecircle.fill.circle" : "circle"))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(isSelected ? Theme.aqua : .white.opacity(0.55))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.subheadline)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                     if let description {
                         Text(description)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.65))
                     }
                 }
                 Spacer()
             }
             .padding(6)
-            .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
-            .cornerRadius(5)
+            .background(isSelected ? Theme.aqua.opacity(0.16) : Color.clear)
+            .cornerRadius(6)
         }
         .buttonStyle(.plain)
     }
@@ -486,23 +493,24 @@ struct PlanCard: View {
             HStack {
                 Label("Plano pronto para aprovação", systemImage: "doc.text.magnifyingglass")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.coral)
                 Spacer()
                 Text("esperando há \(max(0, Int(store.now.timeIntervalSince(request.createdAt)))) s")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.60))
             }
 
             ScrollView {
                 Text(renderedMarkdown)
                     .font(.callout)
+                    .foregroundStyle(.white.opacity(0.92))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(10)
             }
             .frame(maxHeight: 300)
-            .background(Color(nsColor: .textBackgroundColor))
-            .cornerRadius(6)
+            .background(Theme.insetSurface)
+            .cornerRadius(8)
 
             if ui.showRejectField {
                 HStack(spacing: 8) {
@@ -515,7 +523,7 @@ struct PlanCard: View {
                         store.deny(request, message: ui.feedback)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.red)
+                    .tint(Theme.coral)
                     Button("Cancelar") {
                         ui.showRejectField = false
                     }
@@ -528,13 +536,13 @@ struct PlanCard: View {
                     store.allow(request)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(Theme.emerald)
 
                 Button("Rejeitar com feedback…") {
                     ui.showRejectField.toggle()
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
+                .tint(Theme.coral)
 
                 Spacer()
 
@@ -542,16 +550,16 @@ struct PlanCard: View {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.65))
                 .font(.caption)
             }
         }
         .padding(12)
-        .background(Color.red.opacity(0.05))
+        .background(Theme.coral.opacity(0.10))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.red.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Theme.coral.opacity(0.45), lineWidth: 1)
         )
-        .cornerRadius(8)
+        .cornerRadius(10)
     }
 }

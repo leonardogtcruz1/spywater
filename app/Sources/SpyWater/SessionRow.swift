@@ -12,86 +12,138 @@ struct SessionRow: View {
         store.pending(for: session.id)
     }
 
+    private var borderColor: Color {
+        switch state {
+        case .working: return Theme.aqua.opacity(0.42)
+        case .waitingTerminal, .yourTurn: return Theme.amber.opacity(0.45)
+        case .error: return Theme.coral.opacity(0.55)
+        case .idle: return Theme.teal.opacity(0.22)
+        default: return Theme.cardBorder
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
-                Circle()
-                    .fill(state.color)
-                    .frame(width: 9, height: 9)
-
-                Text(state.label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(state.color)
-
-                Text(session.projectName)
-                    .font(.headline)
-
-                if session.displayTitle != session.projectName {
-                    Text("· \(session.displayTitle)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                if session.subagentsRunning > 0 {
-                    Label("\(session.subagentsRunning) subagente\(session.subagentsRunning > 1 ? "s" : "")", systemImage: "cpu")
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.12))
-                        .foregroundStyle(.blue)
-                        .cornerRadius(4)
-                }
-
-                if let model = session.model, !model.isEmpty {
-                    Text(model)
-                        .font(.caption2.weight(.medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.14))
-                        .cornerRadius(4)
-                }
-
-                if let effort = session.effort, !effort.isEmpty {
-                    Text(effort)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let cost = session.costUSD {
-                    Text(String(format: "$%.2f", cost))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                Text(formatRelativeTime(session.lastEventAt, now: store.now))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            if state == .working {
+                WorkingShimmerStrip()
             }
 
-            HStack(spacing: 12) {
-                Text(session.activity)
-                    .font(session.activity.hasPrefix("$ ") ? .system(.caption, design: .monospaced) : .caption)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .center, spacing: 8) {
+                    PulsingStatusDot(
+                        color: state.color,
+                        animated: state == .working || state == .needsYou
+                    )
 
-                Spacer()
+                    Text(state.label)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(state.color.opacity(0.18))
+                        .foregroundStyle(state.color)
+                        .clipShape(Capsule())
 
-                contextMeter
-            }
+                    Text(session.projectName)
+                        .font(.headline)
+                        .foregroundStyle(.white)
 
-            if !sessionPending.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(sessionPending) { req in
-                        PendingCardView(request: req, isTopmost: req.id == store.topPendingId)
+                    if session.displayTitle != session.projectName {
+                        Text("· \(session.displayTitle)")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.65))
+                            .lineLimit(1)
                     }
+
+                    Spacer(minLength: 8)
+
+                    if session.subagentsRunning > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cpu")
+                                .font(.caption2)
+                            Text("\(session.subagentsRunning) subagente\(session.subagentsRunning > 1 ? "s" : "")")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(Theme.aqua.opacity(0.18))
+                        .foregroundStyle(Theme.aqua)
+                        .clipShape(Capsule())
+                    }
+
+                    if let model = session.model, !model.isEmpty {
+                        Text(model)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2.5)
+                            .background(Theme.violet.opacity(0.20))
+                            .foregroundStyle(Theme.violet)
+                            .overlay(
+                                Capsule().stroke(Theme.violet.opacity(0.35), lineWidth: 0.8)
+                            )
+                            .clipShape(Capsule())
+                    }
+
+                    if let effort = session.effort, !effort.isEmpty {
+                        Text(effort)
+                            .font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundStyle(.white.opacity(0.70))
+                            .clipShape(Capsule())
+                    }
+
+                    if let cost = session.costUSD {
+                        Text(String(format: "$%.2f", cost))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.emerald)
+                    }
+
+                    Text(formatRelativeTime(session.lastEventAt, now: store.now))
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
                 }
-                .padding(.top, 2)
+
+                HStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        if state == .working {
+                            WorkingWaveBars(tint: Theme.aqua)
+                        }
+                        Text(session.activity)
+                            .font(session.activity.hasPrefix("$ ") ? .system(.caption, design: .monospaced) : .caption)
+                            .foregroundStyle(.white.opacity(0.88))
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.insetSurface)
+                    .cornerRadius(8)
+
+                    contextMeter
+                }
+
+                if !sessionPending.isEmpty {
+                    VStack(spacing: 8) {
+                        ForEach(sessionPending) { req in
+                            PendingCardView(request: req, isTopmost: req.id == store.topPendingId)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(14)
+        }
+        .background(Theme.cardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            if state == .needsYou {
+                NeedsYouPulseBorder(cornerRadius: 14, color: Theme.coral)
+            } else {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(borderColor, lineWidth: 1)
             }
         }
-        .padding(.vertical, 6)
         .contextMenu {
             Button("Focar terminal") {
                 Actions.focusTerminal(termProgram: session.termProgram)
@@ -110,17 +162,34 @@ struct SessionRow: View {
         if let pct = session.contextPct {
             let win = session.contextWindow ?? 200_000
             let isHigh = pct >= 80
-            HStack(spacing: 6) {
-                ProgressView(value: min(max(pct, 0), 100), total: 100)
-                    .frame(width: 70)
-                    .tint(isHigh ? .red : (pct >= 60 ? .orange : .blue))
-                Text("\(Int(pct.rounded()))% de \(formatTokens(win))")
-                    .font(.caption2)
-                    .foregroundStyle(isHigh ? .red : .secondary)
+            let tint = isHigh ? Theme.coral : (pct >= 60 ? Theme.amber : Theme.aqua)
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 6) {
+                    GeometryReader { geo in
+                        let frac = min(max(pct / 100.0, 0), 1.0)
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.12))
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: isHigh ? [Theme.amber, Theme.coral] : [Theme.teal, tint],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: max(4, geo.size.width * frac))
+                        }
+                    }
+                    .frame(width: 72, height: 5)
+
+                    Text("\(Int(pct.rounded()))% de \(formatTokens(win))")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(isHigh ? Theme.coral : .white.opacity(0.70))
+                }
                 if isHigh {
                     Text("considere /compact")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.red)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Theme.coral)
                 }
             }
         }

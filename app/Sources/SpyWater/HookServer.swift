@@ -298,8 +298,7 @@ private final class ConnectionHandler {
     }
 
     private func receiveMore() {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
-            guard let self else { return }
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, error in
             if let data, !data.isEmpty {
                 self.buffer.append(data)
             }

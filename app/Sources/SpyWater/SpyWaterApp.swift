@@ -22,6 +22,7 @@ struct SpyWaterApp: App {
             DashboardView()
                 .environmentObject(store)
                 .frame(minWidth: 760, minHeight: 520)
+                .preferredColorScheme(.dark)
                 .onAppear {
                     store.onOpenMainWindow = {
                         openWindow(id: "main")
@@ -34,6 +35,7 @@ struct SpyWaterApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(store)
+                .preferredColorScheme(.dark)
         } label: {
             Label("\(store.attentionCount)", systemImage: store.attentionCount > 0 ? "exclamationmark.bubble.fill" : "eye")
         }

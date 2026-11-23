@@ -7,12 +7,15 @@ final class SessionStore: ObservableObject {
     @Published var sessions: [String: Session] = [:]
     @Published var pending: [PendingRequest] = []
     @Published var rateLimits: RateLimits?
+    @Published var localUsage: LocalPlanUsage?
+    @Published var statuslineInstalled: Bool = false
     @Published var recent: [RecentSession] = []
     @Published var serverError: String?
     @Published var now: Date = Date()
 
     let server = HookServer()
     let notifier = Notifier()
+    private let usageTracker = UsageTracker()
 
     var onOpenMainWindow: (() -> Void)?
 
@@ -20,14 +23,17 @@ final class SessionStore: ObservableObject {
     private var livenessTimer: Timer?
     private var transcriptTimer: Timer?
     private var recentTimer: Timer?
+    private var usageTimer: Timer?
 
     init() {
         ensureDefaults()
+        loadCachedRateLimits()
         setupCallbacks()
         notifier.setup()
         server.start()
         startTimers()
         refreshRecent()
+        refreshLocalUsage()
     }
 
     private func ensureDefaults() {
@@ -177,6 +183,11 @@ final class SessionStore: ObservableObject {
                 self?.refreshRecent()
             }
         }
+        usageTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshLocalUsage()
+            }
+        }
     }
 
     private func onTick() {
@@ -322,7 +333,7 @@ final class SessionStore: ObservableObject {
             sessions[id]?.state = .idle
             sessions[id]?.activity = "Sessão iniciada"
             if let m = payload.nonEmptyStr("model"), sessions[id]?.hasStatuslineModel == false {
-                sessions[id]?.model = m
+                sessions[id]?.model = formatModelName(m)
             }
             if let title = payload.nonEmptyStr("session_title") {
                 sessions[id]?.title = title
@@ -380,6 +391,7 @@ final class SessionStore: ObservableObject {
                 sessions[id]?.lastAssistantMessage = lastMsg
             }
             refreshTranscript(for: id)
+            refreshLocalUsage()
 
         case "StopFailure":
             sessions[id]?.state = .error
@@ -395,6 +407,7 @@ final class SessionStore: ObservableObject {
                 release(req)
             }
             refreshRecent()
+            refreshLocalUsage()
 
         default:
             break
@@ -505,18 +518,29 @@ final class SessionStore: ObservableObject {
         if let rl = payload.dict("rate_limits") {
             let five = rl.dict("five_hour")
             let seven = rl.dict("seven_day")
-            if five != nil || seven != nil {
+            let spend = rl.dict("spend_limit")
+            if five != nil || seven != nil || spend != nil {
                 let fivePct = five?.double("used_percentage")
                 let fiveReset = five?.double("resets_at").map { Date(timeIntervalSince1970: $0) }
                 let sevenPct = seven?.double("used_percentage")
                 let sevenReset = seven?.double("resets_at").map { Date(timeIntervalSince1970: $0) }
-                rateLimits = RateLimits(
+                let spendPct = spend?.double("used_percentage")
+                let spendReset = spend?.double("resets_at").map { Date(timeIntervalSince1970: $0) }
+                let spendUsed = spend?.double("used_usd")
+                let spendLimit = spend?.double("limit_usd")
+                let updated = RateLimits(
                     fiveHourPct: fivePct,
                     fiveHourReset: fiveReset,
                     sevenDayPct: sevenPct,
                     sevenDayReset: sevenReset,
+                    spendLimitPct: spendPct,
+                    spendLimitReset: spendReset,
+                    spendUsedUSD: spendUsed,
+                    spendLimitUSD: spendLimit,
                     updatedAt: Date()
                 )
+                rateLimits = updated
+                saveCachedRateLimits(updated)
             }
         }
     }
@@ -677,7 +701,7 @@ final class SessionStore: ObservableObject {
                 guard let self, var s = self.sessions[sessionId] else { return }
                 if s.title == nil, let t = snap.title { s.title = t }
                 if s.lastPrompt == nil, let lp = snap.lastPrompt { s.lastPrompt = lp }
-                if !s.hasStatuslineModel, s.model == nil, let m = snap.model { s.model = m }
+                if !s.hasStatuslineModel, s.model == nil, let m = snap.model { s.model = formatModelName(m) }
                 if s.contextTokens == nil, let tok = snap.contextTokens { s.contextTokens = tok }
                 if s.contextWindow == nil, let win = snap.contextWindow { s.contextWindow = win }
                 if s.contextPct == nil, let tok = s.contextTokens, let win = s.contextWindow, win > 0 {
@@ -694,6 +718,94 @@ final class SessionStore: ObservableObject {
         TranscriptReader.scanRecent(excluding: liveIds) { [weak self] items in
             self?.recent = items
         }
+    }
+
+    func refreshLocalUsage() {
+        statuslineInstalled = Self.checkStatuslineInstalled()
+        usageTracker.scan { [weak self] usage in
+            self?.localUsage = usage
+        }
+    }
+
+    static func checkStatuslineInstalled() -> Bool {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
+        guard let data = try? Data(contentsOf: url),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let sl = obj["statusLine"] as? [String: Any],
+              let cmd = sl["command"] as? String
+        else { return false }
+        return cmd.contains("statusline-tee.sh")
+    }
+
+    private static var rateLimitsCacheURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".spywater/rate-limits-cache.json")
+    }
+
+    private func loadCachedRateLimits() {
+        let url = Self.rateLimitsCacheURL
+        guard let data = try? Data(contentsOf: url),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return }
+
+        let current = Date()
+        var fivePct = obj.double("fiveHourPct")
+        var fiveReset = obj.double("fiveHourReset").map { Date(timeIntervalSince1970: $0) }
+        if let r = fiveReset, r <= current {
+            fivePct = nil
+            fiveReset = nil
+        }
+
+        var sevenPct = obj.double("sevenDayPct")
+        var sevenReset = obj.double("sevenDayReset").map { Date(timeIntervalSince1970: $0) }
+        if let r = sevenReset, r <= current {
+            sevenPct = nil
+            sevenReset = nil
+        }
+
+        var spendPct = obj.double("spendLimitPct")
+        var spendReset = obj.double("spendLimitReset").map { Date(timeIntervalSince1970: $0) }
+        var spendUsed = obj.double("spendUsedUSD")
+        var spendLim = obj.double("spendLimitUSD")
+        if let r = spendReset, r <= current {
+            spendPct = nil
+            spendReset = nil
+            spendUsed = nil
+            spendLim = nil
+        }
+
+        guard fivePct != nil || sevenPct != nil || spendPct != nil else { return }
+        let updated = obj.double("updatedAt").map { Date(timeIntervalSince1970: $0) } ?? current
+        rateLimits = RateLimits(
+            fiveHourPct: fivePct,
+            fiveHourReset: fiveReset,
+            sevenDayPct: sevenPct,
+            sevenDayReset: sevenReset,
+            spendLimitPct: spendPct,
+            spendLimitReset: spendReset,
+            spendUsedUSD: spendUsed,
+            spendLimitUSD: spendLim,
+            updatedAt: updated
+        )
+    }
+
+    private func saveCachedRateLimits(_ rl: RateLimits) {
+        let fm = FileManager.default
+        let dir = fm.homeDirectoryForCurrentUser.appendingPathComponent(".spywater", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        var obj: [String: Any] = ["updatedAt": rl.updatedAt.timeIntervalSince1970]
+        if let v = rl.fiveHourPct { obj["fiveHourPct"] = v }
+        if let d = rl.fiveHourReset { obj["fiveHourReset"] = d.timeIntervalSince1970 }
+        if let v = rl.sevenDayPct { obj["sevenDayPct"] = v }
+        if let d = rl.sevenDayReset { obj["sevenDayReset"] = d.timeIntervalSince1970 }
+        if let v = rl.spendLimitPct { obj["spendLimitPct"] = v }
+        if let d = rl.spendLimitReset { obj["spendLimitReset"] = d.timeIntervalSince1970 }
+        if let v = rl.spendUsedUSD { obj["spendUsedUSD"] = v }
+        if let v = rl.spendLimitUSD { obj["spendLimitUSD"] = v }
+
+        let data = jsonData(obj)
+        try? data.write(to: Self.rateLimitsCacheURL, options: .atomic)
     }
 
     // MARK: - Helpers

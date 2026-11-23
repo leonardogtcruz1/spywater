@@ -51,9 +51,11 @@ struct SettingsView: View {
                 LabeledContent("Status line (uso do plano)") {
                     HStack(spacing: 8) {
                         Text(ui.statuslineInstalled ? "Instalada" : "Não instalada")
-                            .foregroundStyle(ui.statuslineInstalled ? .green : .orange)
+                            .foregroundStyle(ui.statuslineInstalled ? Theme.emerald : Theme.amber)
                         Button("Verificar") {
-                            ui.statuslineInstalled = Self.checkStatuslineInstalled()
+                            let ok = SessionStore.checkStatuslineInstalled()
+                            ui.statuslineInstalled = ok
+                            store.statuslineInstalled = ok
                         }
                         .controlSize(.small)
                     }
@@ -73,18 +75,11 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480, height: 340)
+        .preferredColorScheme(.dark)
         .onAppear {
-            ui.statuslineInstalled = Self.checkStatuslineInstalled()
+            let ok = SessionStore.checkStatuslineInstalled()
+            ui.statuslineInstalled = ok
+            store.statuslineInstalled = ok
         }
-    }
-
-    private static func checkStatuslineInstalled() -> Bool {
-        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
-        guard let data = try? Data(contentsOf: url),
-              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let sl = obj["statusLine"] as? [String: Any],
-              let cmd = sl["command"] as? String
-        else { return false }
-        return cmd.contains("statusline-tee.sh")
     }
 }
