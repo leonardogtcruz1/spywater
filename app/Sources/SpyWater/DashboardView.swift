@@ -340,9 +340,14 @@ struct DashboardView: View {
     }
 }
 
+private final class RecentHoverState: ObservableObject {
+    @Published var isHovered = false
+}
+
 private struct RecentRow: View {
     let item: RecentSession
     @EnvironmentObject var store: SessionStore
+    @StateObject private var hover = RecentHoverState()
 
     var body: some View {
         HStack(spacing: 10) {
@@ -370,7 +375,7 @@ private struct RecentRow: View {
 
             if item.source == .antigravity {
                 Button("Abrir") {
-                    Actions.focusAntigravity()
+                    Actions.focusAntigravity(title: item.displayTitle, projectName: item.projectName)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -384,6 +389,19 @@ private struct RecentRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+        .background(hover.isHovered ? Color.white.opacity(0.06) : Color.clear)
+        .contentShape(Rectangle())
+        .onHover { over in
+            hover.isHovered = over
+        }
+        .onTapGesture {
+            if item.source == .antigravity {
+                Actions.focusAntigravity(title: item.displayTitle, projectName: item.projectName)
+            } else {
+                Actions.resume(sessionId: item.id, cwd: item.cwd, terminal: store.terminalApp)
+            }
+        }
+        .help(item.source == .antigravity ? "Clique para abrir no Antigravity" : "Clique para retomar no terminal")
         .contextMenu {
             Button("Abrir pasta") {
                 Actions.openInFinder(cwd: item.cwd)

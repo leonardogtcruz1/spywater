@@ -79,6 +79,14 @@ struct MenuBarView: View {
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(pct >= 80 ? Theme.coral : .white.opacity(0.65))
                             }
+                            Image(systemName: "arrow.up.forward")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.40))
+                        }
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Actions.openLiveSession(s, terminal: store.terminalApp)
                         }
                     }
                 }
