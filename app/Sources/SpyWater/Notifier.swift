@@ -74,6 +74,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center.add(request, withCompletionHandler: nil)
     }
 
+    func notifyMissionCompleted(title: String) {
+        guard let center else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Missão concluída"
+        content.body = title
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "mission-\(Int(Date().timeIntervalSince1970))",
+            content: content,
+            trigger: nil
+        )
+        center.add(request, withCompletionHandler: nil)
+    }
+
     func removePendingNotification(id: UUID) {
         center?.removeDeliveredNotifications(withIdentifiers: ["pending-\(id.uuidString)"])
         center?.removePendingNotificationRequests(withIdentifiers: ["pending-\(id.uuidString)"])

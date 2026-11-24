@@ -2,6 +2,7 @@ import SwiftUI
 
 private enum MainTab: String, CaseIterable {
     case sessions = "Sessões"
+    case missions = "Missões"
     case usage = "Uso do plano"
 }
 
@@ -26,6 +27,7 @@ private final class DashboardUIState: ObservableObject {
 
 struct DashboardView: View {
     @EnvironmentObject var store: SessionStore
+    @EnvironmentObject var missionEngine: MissionEngine
     @StateObject private var ui = DashboardUIState()
 
     private var allLiveSessions: [Session] {
@@ -153,15 +155,18 @@ struct DashboardView: View {
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
 
-                if ui.tab == .usage {
+                switch ui.tab {
+                case .sessions:
+                    sessionsTabView
+                case .missions:
+                    MissionsView()
+                case .usage:
                     PlanUsageTabView(
                         rateLimits: store.rateLimits,
                         localUsage: store.localUsage,
                         statuslineInstalled: store.statuslineInstalled,
                         now: store.now
                     )
-                } else {
-                    sessionsTabView
                 }
             }
 
@@ -187,7 +192,10 @@ struct DashboardView: View {
                     ui.tab = tab
                 } label: {
                     HStack(spacing: 6) {
-                        if tab == .usage {
+                        if tab == .missions {
+                            Image(systemName: "square.stack.3d.up.fill")
+                                .font(.caption2)
+                        } else if tab == .usage {
                             Image(systemName: "chart.bar.fill")
                                 .font(.caption2)
                         }
@@ -202,6 +210,11 @@ struct DashboardView: View {
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(Theme.coral)
                             }
+                        } else if tab == .missions && missionEngine.hasActiveMission {
+                            Circle()
+                                .fill(Theme.aqua)
+                                .frame(width: 6, height: 6)
+                                .shadow(color: Theme.aqua.opacity(0.8), radius: 3)
                         }
                     }
                     .foregroundStyle(isSelected ? .white : .white.opacity(0.58))

@@ -86,6 +86,8 @@ final class HookServer {
     var onGetPending: ((@escaping ([[String: Any]]) -> Void) -> Void)?
     var onGetSessions: ((@escaping ([[String: Any]]) -> Void) -> Void)?
     var onDebugDecide: (([String: Any], @escaping (Bool) -> Void) -> Void)?
+    var onDebugStartMission: (([String: Any], @escaping (String?) -> Void) -> Void)?
+    var onDebugGetMissions: ((@escaping ([[String: Any]]) -> Void) -> Void)?
 
     init(
         port: UInt16 = UInt16(ProcessInfo.processInfo.environment["SPYWATER_PORT"] ?? "") ?? 47821,
@@ -265,6 +267,40 @@ final class HookServer {
                         } else {
                             responder.respond(statusCode: 404, statusText: "Not Found", body: jsonData(["error": "pending_not_found"]))
                         }
+                    }
+                }
+                return
+            }
+
+            if method == "POST" && path == "/debug/mission" {
+                guard let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else {
+                    responder.respond(statusCode: 400, statusText: "Bad Request", body: jsonData(["error": "invalid_json"]))
+                    return
+                }
+                DispatchQueue.main.async {
+                    guard let startMission = self.onDebugStartMission else {
+                        responder.respond(statusCode: 404, statusText: "Not Found", body: jsonData(["error": "not_found"]))
+                        return
+                    }
+                    startMission(json) { missionId in
+                        if let missionId {
+                            responder.respond(body: jsonData(["id": missionId]))
+                        } else {
+                            responder.respond(statusCode: 400, statusText: "Bad Request", body: jsonData(["error": "invalid_mission"]))
+                        }
+                    }
+                }
+                return
+            }
+
+            if method == "GET" && path == "/debug/missions" {
+                DispatchQueue.main.async {
+                    guard let getMissions = self.onDebugGetMissions else {
+                        responder.respond(body: jsonData([]))
+                        return
+                    }
+                    getMissions { items in
+                        responder.respond(body: jsonData(items))
                     }
                 }
                 return

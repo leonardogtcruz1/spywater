@@ -8,9 +8,10 @@ Aplicativo nativo para macOS + integração para **Claude Code** e **Antigravity
 - **Filtros por origem e prioridade para pendências:** filtre entre Todos, Claude Code ou Antigravity; sessões aguardando permissão, resposta (`AskUserQuestion` / `ask_question`), aprovação de plano (`ExitPlanMode`), erro ou sua próxima instrução sobem automaticamente para o topo.
 - **Allow / Deny e perguntas direto do app:** aprove comandos, edições e permissões, aprove com regras sugeridas ("Sempre permitir"), negue com instrução, responda perguntas de múltipla escolha/texto livre ou aprove/rejeite planos. Quando preferir, clique em **Responder no terminal** / **Responder no Antigravity**.
 - **Uso do plano:**
-  - **Claude Code:** barras para limite de **5 horas** e **semanal** via status line (com cache local) + tokens/turnos/custo/modelos locais.
+  - **Claude Code:** barras para limite de **5 horas** e **semanal** via status line (com cache local) + tokens/turnos/custo/modelos locais em uma aba dedicada (**Uso do plano**).
   - **Antigravity / Gemini:** tokens, turnos e top modelos nas janelas de **5 horas**, **7 dias** e **hoje** lidos dos transcripts locais.
-- **Retomar / abrir sessões:** retome sessões encerradas do Claude Code (`claude --resume`) no Terminal ou iTerm, ou foque rapidamente o Antigravity.
+- **Missões multi-agente (Claude Code):** na aba **Missões**, descreva um projeto e o SpyWater divide automaticamente em subtarefas com dependências, roda vários agentes Claude Code em paralelo em `git worktree`s isoladas, verifica e faz merge automático até concluir toda a fila.
+- **Retomar / abrir sessões:** clique em qualquer card parado ou recente para pular direto para a aba/janela daquele agente (`claude --resume` ou foco no terminal/Antigravity).
 
 ## Estrutura do repositório
 
