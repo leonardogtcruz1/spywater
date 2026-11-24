@@ -64,7 +64,7 @@ struct MenuBarView: View {
                     ForEach(topSessions) { s in
                         let st = store.effectiveState(for: s)
                         HStack(spacing: 6) {
-                            PulsingStatusDot(color: st.color, animated: st == .working || st == .needsYou)
+                            SessionStatusDot(state: st)
                             Text(s.projectName)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white)

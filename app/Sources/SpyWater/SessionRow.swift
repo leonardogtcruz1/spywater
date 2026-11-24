@@ -22,21 +22,45 @@ struct SessionRow: View {
         }
     }
 
+    private var needsAttention: Bool {
+        state == .needsYou || state == .waitingTerminal || state == .yourTurn || state == .error
+    }
+
+    private var isUrgentAttention: Bool {
+        state == .needsYou || state == .error
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if state == .working {
-                WorkingShimmerStrip()
+        HStack(spacing: 0) {
+            if needsAttention {
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [state.color, state.color.opacity(0.55)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 3.5)
+                    .shadow(color: state.color.opacity(0.6), radius: 5)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .center, spacing: 8) {
-                    PulsingStatusDot(
-                        color: state.color,
-                        animated: state == .working || state == .needsYou
-                    )
+            VStack(alignment: .leading, spacing: 0) {
+                if state == .working {
+                    WorkingShimmerStrip()
+                }
 
-                    Text(state.label)
-                        .font(.caption2.weight(.bold))
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .center, spacing: 8) {
+                        SessionStatusDot(state: state)
+
+                        HStack(spacing: 4) {
+                            if needsAttention {
+                                AttentionBellIcon(color: state.color, urgent: isUrgentAttention)
+                            }
+                            Text(state.label)
+                                .font(.caption2.weight(.bold))
+                        }
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2.5)
                         .background(state.color.opacity(0.18))
@@ -116,6 +140,10 @@ struct SessionRow: View {
                     HStack(spacing: 8) {
                         if state == .working {
                             WorkingWaveBars(tint: Theme.aqua)
+                        } else if needsAttention {
+                            Image(systemName: isUrgentAttention ? "exclamationmark.triangle.fill" : "arrow.turn.down.right")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(state.color)
                         }
                         Text(session.activity)
                             .font(session.activity.hasPrefix("$ ") ? .system(.caption, design: .monospaced) : .caption)
@@ -125,7 +153,7 @@ struct SessionRow: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.insetSurface)
+                    .background(needsAttention ? state.color.opacity(0.10) : Theme.insetSurface)
                     .cornerRadius(8)
 
                     contextMeter
@@ -142,11 +170,12 @@ struct SessionRow: View {
             }
             .padding(14)
         }
+        }
         .background(Theme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay {
-            if state == .needsYou {
-                NeedsYouPulseBorder(cornerRadius: 14, color: Theme.coral)
+            if needsAttention {
+                NeedsYouPulseBorder(cornerRadius: 14, color: state.color, urgent: isUrgentAttention)
             } else {
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(borderColor, lineWidth: 1)

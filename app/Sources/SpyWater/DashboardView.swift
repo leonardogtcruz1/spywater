@@ -138,11 +138,17 @@ struct DashboardView: View {
                             }
 
                             if store.attentionCount > 0 {
-                                HeaderPill(
-                                    icon: "exclamationmark.bubble.fill",
-                                    text: "\(store.attentionCount) pendente\(store.attentionCount == 1 ? "" : "s")",
-                                    tint: Theme.coral
-                                )
+                                HStack(spacing: 6) {
+                                    AttentionBellIcon(color: Theme.coral, urgent: true)
+                                    Text("\(store.attentionCount) pendente\(store.attentionCount == 1 ? "" : "s")")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Theme.coral)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Theme.coral.opacity(0.16))
+                                .overlay(Capsule().stroke(Theme.coral.opacity(0.42), lineWidth: 1))
+                                .clipShape(Capsule())
                             }
 
                             Button {
@@ -198,24 +204,40 @@ struct DashboardView: View {
                         }
 
                         if !needsYouSessions.isEmpty {
-                            SectionHeaderView(
-                                title: "Precisa de você",
-                                count: needsYouSessions.count,
-                                tint: Theme.coral,
-                                icon: "exclamationmark.circle.fill"
-                            )
+                            HStack(spacing: 7) {
+                                AttentionBellIcon(color: Theme.coral, urgent: true)
+                                Text("Precisa de você")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.92))
+                                Text("\(needsYouSessions.count)")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1.5)
+                                    .background(Theme.coral.opacity(0.20))
+                                    .foregroundStyle(Theme.coral)
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.top, 4)
                             ForEach(needsYouSessions) { session in
                                 SessionRow(session: session)
                             }
                         }
 
                         if !workingSessions.isEmpty {
-                            SectionHeaderView(
-                                title: "Trabalhando",
-                                count: workingSessions.count,
-                                tint: Theme.aqua,
-                                icon: "waveform"
-                            )
+                            HStack(spacing: 7) {
+                                WorkingWaveBars(tint: Theme.aqua)
+                                Text("Trabalhando")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.92))
+                                Text("\(workingSessions.count)")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1.5)
+                                    .background(Theme.aqua.opacity(0.20))
+                                    .foregroundStyle(Theme.aqua)
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.top, 4)
                             ForEach(workingSessions) { session in
                                 SessionRow(session: session)
                             }
