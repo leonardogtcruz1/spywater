@@ -19,10 +19,10 @@ struct SessionRow: View {
 
     private var borderColor: Color {
         switch state {
-        case .working: return Theme.aqua.opacity(0.36)
+        case .working: return Theme.aqua.opacity(0.55)
         case .waitingTerminal, .yourTurn: return Theme.amber.opacity(0.45)
         case .error: return Theme.coral.opacity(0.55)
-        case .idle: return Theme.teal.opacity(0.20)
+        case .idle: return Theme.cardBorder
         default: return Theme.cardBorder
         }
     }
@@ -41,13 +41,13 @@ struct SessionRow: View {
                 Rectangle()
                     .fill(
                         LinearGradient(
-                            colors: [state.color, state.color.opacity(0.55)],
+                            colors: [state.color, state.color.opacity(0.65)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
-                    .frame(width: 3.5)
-                    .shadow(color: state.color.opacity(0.55), radius: 5)
+                    .frame(width: 5.0)
+                    .shadow(color: state.color.opacity(0.75), radius: 7)
             }
 
             VStack(alignment: .leading, spacing: 0) {
@@ -62,15 +62,16 @@ struct SessionRow: View {
                             SessionStatusDot(state: state)
 
                             if needsAttention {
+                                let badgeFg = Color(red: 0.05, green: 0.07, blue: 0.12)
                                 HStack(spacing: 4) {
-                                    AttentionBellIcon(color: state.color, urgent: isUrgentAttention)
+                                    AttentionBellIcon(color: badgeFg, urgent: isUrgentAttention)
                                     Text(state.label)
                                         .font(.caption2.weight(.bold))
                                 }
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2.5)
-                                .background(state.color.opacity(0.18))
-                                .foregroundStyle(state.color)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(state.color)
+                                .foregroundStyle(badgeFg)
                                 .clipShape(Capsule())
                             }
 
@@ -178,14 +179,25 @@ struct SessionRow: View {
                 .padding(14)
             }
         }
-        .background(hover.isHovered ? Theme.cardSurfaceElevated : Theme.cardSurface)
+        .background {
+            if needsAttention {
+                AttentionCardBackground(color: state.color, urgent: isUrgentAttention, hovered: hover.isHovered)
+            } else if state == .working {
+                WorkingCardBackground(hovered: hover.isHovered)
+            } else {
+                hover.isHovered ? Theme.cardSurfaceElevated : Theme.cardSurface
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay {
             if needsAttention {
                 NeedsYouPulseBorder(cornerRadius: 14, color: state.color, urgent: isUrgentAttention)
+            } else if state == .working {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(hover.isHovered ? Theme.aqua.opacity(0.80) : borderColor, lineWidth: 1.4)
             } else {
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(hover.isHovered ? Theme.aqua.opacity(0.45) : borderColor, lineWidth: 1)
+                    .stroke(hover.isHovered ? Theme.aqua.opacity(0.35) : borderColor, lineWidth: 1)
             }
         }
         .contextMenu {

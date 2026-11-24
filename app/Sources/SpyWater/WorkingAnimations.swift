@@ -186,24 +186,25 @@ struct WorkingShimmerStrip: View {
                 .truncatingRemainder(dividingBy: 1.0)
             GeometryReader { geo in
                 let width = geo.size.width
-                let bandWidth = max(100, width * 0.36)
+                let bandWidth = max(110, width * 0.42)
                 let travel = width + bandWidth
                 let xOffset = -bandWidth + travel * phase
 
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(Theme.aqua.opacity(0.14))
+                        .fill(Theme.aqua.opacity(0.18))
 
                     LinearGradient(
-                        colors: [.clear, Theme.aqua, Theme.teal, Theme.violet, .clear],
+                        colors: [.clear, Theme.aqua, Theme.emerald, Theme.violet, .clear],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                     .frame(width: bandWidth)
                     .offset(x: xOffset)
+                    .shadow(color: Theme.aqua.opacity(0.65), radius: 5)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 4)
             .clipped()
         }
     }
@@ -224,16 +225,82 @@ struct NeedsYouPulseBorder: View {
                     let beat2 = (cycle >= 0.28 && cycle < 0.56) ? sin(((cycle - 0.28) / 0.28) * .pi) : 0.0
                     return max(beat1, beat2)
                 } else {
-                    return 0.5 + 0.5 * sin(t * 2.8)
+                    return 0.5 + 0.5 * sin(t * 2.6)
                 }
             }()
 
-            let opacity = urgent ? (0.38 + intensity * 0.57) : (0.28 + intensity * 0.37)
-            let lineWidth: CGFloat = urgent ? 1.6 : 1.2
+            let opacity = urgent ? (0.45 + intensity * 0.55) : (0.35 + intensity * 0.42)
+            let lineWidth: CGFloat = urgent ? 2.0 : 1.6
 
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(color.opacity(opacity), lineWidth: lineWidth)
-                .shadow(color: color.opacity(urgent ? (0.14 + intensity * 0.32) : intensity * 0.16), radius: urgent ? 8 : 5)
+                .shadow(color: color.opacity(urgent ? (0.20 + intensity * 0.40) : (0.10 + intensity * 0.20)), radius: urgent ? 10 : 7)
+        }
+    }
+}
+
+struct AttentionCardBackground: View {
+    let color: Color
+    let urgent: Bool
+    var hovered: Bool = false
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let intensity: Double = {
+                if urgent {
+                    let cycle = t.truncatingRemainder(dividingBy: 1.6)
+                    let beat1 = cycle < 0.28 ? sin((cycle / 0.28) * .pi) : 0.0
+                    let beat2 = (cycle >= 0.28 && cycle < 0.56) ? sin(((cycle - 0.28) / 0.28) * .pi) : 0.0
+                    return max(beat1, beat2)
+                } else {
+                    return 0.5 + 0.5 * sin(t * 2.6)
+                }
+            }()
+
+            let leadAlpha = urgent ? (0.16 + intensity * 0.14) : (0.11 + intensity * 0.09)
+            let trailAlpha = urgent ? (0.06 + intensity * 0.06) : (0.04 + intensity * 0.04)
+
+            ZStack {
+                hovered ? Theme.cardSurfaceElevated : Theme.cardSurface
+                LinearGradient(
+                    colors: [color.opacity(leadAlpha), color.opacity(trailAlpha)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            }
+        }
+    }
+}
+
+struct WorkingCardBackground: View {
+    var hovered: Bool = false
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+            let phase = (context.date.timeIntervalSinceReferenceDate / 2.4)
+                .truncatingRemainder(dividingBy: 1.0)
+
+            GeometryReader { geo in
+                let width = geo.size.width
+                let bandWidth = max(140, width * 0.55)
+                let travel = width + bandWidth
+                let xOffset = -bandWidth + travel * phase
+
+                ZStack(alignment: .leading) {
+                    hovered ? Theme.cardSurfaceElevated : Theme.cardSurface
+                    Theme.aqua.opacity(0.07)
+
+                    LinearGradient(
+                        colors: [.clear, Theme.aqua.opacity(0.16), Theme.emerald.opacity(0.11), .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: bandWidth)
+                    .offset(x: xOffset)
+                }
+            }
+            .clipped()
         }
     }
 }
