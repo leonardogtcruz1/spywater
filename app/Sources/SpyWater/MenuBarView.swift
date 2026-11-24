@@ -32,12 +32,9 @@ struct MenuBarView: View {
                 }
             }
 
-            UsageHeader(
+            CompactUsageStrip(
                 rateLimits: store.rateLimits,
-                localUsage: store.localUsage,
-                statuslineInstalled: store.statuslineInstalled,
-                now: store.now,
-                compact: true
+                localUsage: store.localUsage
             )
 
             if !store.pending.isEmpty {
@@ -53,7 +50,7 @@ struct MenuBarView: View {
                 .frame(maxHeight: 240)
             }
 
-            let topSessions = Array(store.sortedSessions.prefix(6))
+            let topSessions = Array(store.sortedSessions.prefix(5))
             VStack(alignment: .leading, spacing: 6) {
                 if topSessions.isEmpty {
                     Text("Nenhuma sessão ativa")
@@ -108,7 +105,7 @@ struct MenuBarView: View {
             }
         }
         .padding(12)
-        .frame(width: 390)
+        .frame(width: 380)
         .background(Theme.bgGradient)
         .preferredColorScheme(.dark)
     }
