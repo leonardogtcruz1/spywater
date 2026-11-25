@@ -66,6 +66,15 @@ func formatTokens(_ n: Int) -> String {
 
 func formatRelativeTime(_ date: Date, now: Date = Date()) -> String {
     let sec = max(0, Int(now.timeIntervalSince(date)))
+    if L10n.isEnglish {
+        if sec < 60 { return "\(sec)s ago" }
+        let min = sec / 60
+        if min < 60 { return "\(min)m ago" }
+        let hrs = min / 60
+        if hrs < 24 { return "\(hrs)h ago" }
+        let days = hrs / 24
+        return "\(days)d ago"
+    }
     if sec < 60 { return "há \(sec) s" }
     let min = sec / 60
     if min < 60 { return "há \(min) min" }

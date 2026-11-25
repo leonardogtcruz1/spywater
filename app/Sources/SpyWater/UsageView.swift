@@ -22,7 +22,7 @@ struct PlanUsageTabView: View {
 
                     HStack(spacing: 14) {
                         ClaudeWindowCard(
-                            title: "Janela de 5 horas",
+                            title: L10n.t("Janela de 5 horas", "5-hour window"),
                             icon: "bolt.fill",
                             accent: Theme.aqua,
                             pct: rateLimits?.fiveHourPct,
@@ -33,7 +33,7 @@ struct PlanUsageTabView: View {
                         )
 
                         ClaudeWindowCard(
-                            title: "Limite semanal (7 dias)",
+                            title: L10n.t("Limite semanal (7 dias)", "Weekly limit (7 days)"),
                             icon: "calendar",
                             accent: Theme.violet,
                             pct: rateLimits?.sevenDayPct,
@@ -57,11 +57,13 @@ struct PlanUsageTabView: View {
                     if let u = localUsage {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text("Hoje")
+                                Text(L10n.t("Hoje", "Today"))
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.white.opacity(0.88))
                                 Spacer()
-                                Text("\(u.todayMessages) turnos · \(u.todaySessions) \(u.todaySessions == 1 ? "sessão" : "sessões")")
+                                let turnsWord = L10n.t("turnos", "turns")
+                                let sessWord = u.todaySessions == 1 ? L10n.t("sessão", "session") : L10n.t("sessões", "sessions")
+                                Text("\(u.todayMessages) \(turnsWord) · \(u.todaySessions) \(sessWord)")
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.65))
                             }
@@ -69,7 +71,7 @@ struct PlanUsageTabView: View {
                             if !u.topModels.isEmpty {
                                 Divider().overlay(Color.white.opacity(0.08))
                                 ModelBreakdownList(
-                                    title: "Modelos mais usados (7 dias)",
+                                    title: L10n.t("Modelos mais usados (7 dias)", "Top models (7 days)"),
                                     models: u.topModels,
                                     accent: Theme.violet
                                 )
@@ -97,13 +99,15 @@ struct PlanUsageTabView: View {
                         if let u = localUsage {
                             HStack(spacing: 24) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Últimas 5 horas")
+                                    Text(L10n.t("Últimas 5 horas", "Last 5 hours"))
                                         .font(.caption.weight(.medium))
                                         .foregroundStyle(.white.opacity(0.60))
                                     Text("\(formatTokens(u.agyFiveHourTokens)) tokens")
                                         .font(.title3.weight(.bold))
                                         .foregroundStyle(Theme.aqua)
-                                    Text("\(u.agyFiveHourMessages) turnos · \(u.agyFiveHourSessions) \(u.agyFiveHourSessions == 1 ? "conversa" : "conversas")")
+                                    let turns5 = L10n.t("turnos", "turns")
+                                    let conv5 = u.agyFiveHourSessions == 1 ? L10n.t("conversa", "conversation") : L10n.t("conversas", "conversations")
+                                    Text("\(u.agyFiveHourMessages) \(turns5) · \(u.agyFiveHourSessions) \(conv5)")
                                         .font(.caption)
                                         .foregroundStyle(.white.opacity(0.65))
                                 }
@@ -114,13 +118,15 @@ struct PlanUsageTabView: View {
                                     .frame(width: 1, height: 48)
 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Últimos 7 dias")
+                                    Text(L10n.t("Últimos 7 dias", "Last 7 days"))
                                         .font(.caption.weight(.medium))
                                         .foregroundStyle(.white.opacity(0.60))
                                     Text("\(formatTokens(u.agySevenDayTokens)) tokens")
                                         .font(.title3.weight(.bold))
                                         .foregroundStyle(Theme.teal)
-                                    Text("\(u.agySevenDayMessages) turnos · \(u.agySevenDaySessions) \(u.agySevenDaySessions == 1 ? "conversa" : "conversas")")
+                                    let turns7 = L10n.t("turnos", "turns")
+                                    let conv7 = u.agySevenDaySessions == 1 ? L10n.t("conversa", "conversation") : L10n.t("conversas", "conversations")
+                                    Text("\(u.agySevenDayMessages) \(turns7) · \(u.agySevenDaySessions) \(conv7)")
                                         .font(.caption)
                                         .foregroundStyle(.white.opacity(0.65))
                                 }
@@ -130,7 +136,7 @@ struct PlanUsageTabView: View {
                             if !u.agyTopModels.isEmpty {
                                 Divider().overlay(Color.white.opacity(0.08))
                                 ModelBreakdownList(
-                                    title: "Modelos mais usados (7 dias)",
+                                    title: L10n.t("Modelos mais usados (7 dias)", "Top models (7 days)"),
                                     models: u.agyTopModels,
                                     accent: Theme.aqua
                                 )
@@ -138,12 +144,16 @@ struct PlanUsageTabView: View {
 
                             if u.agyTodayMessages > 0 {
                                 Divider().overlay(Color.white.opacity(0.08))
-                                Text("Hoje: \(u.agyTodayMessages) turnos em \(u.agyTodaySessions) \(u.agyTodaySessions == 1 ? "conversa" : "conversas")")
+                                let convToday = u.agyTodaySessions == 1 ? L10n.t("conversa", "conversation") : L10n.t("conversas", "conversations")
+                                Text(L10n.t(
+                                    "Hoje: \(u.agyTodayMessages) turnos em \(u.agyTodaySessions) \(convToday)",
+                                    "Today: \(u.agyTodayMessages) turns in \(u.agyTodaySessions) \(convToday)"
+                                ))
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.60))
                             }
                         } else {
-                            Text("Lendo transcripts locais…")
+                            Text(L10n.t("Lendo transcripts locais…", "Reading local transcripts…"))
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.60))
                         }
@@ -159,11 +169,12 @@ struct PlanUsageTabView: View {
     }
 
     private var fiveHourSummary: String {
-        guard let u = localUsage else { return "Lendo transcripts locais…" }
+        guard let u = localUsage else { return L10n.t("Lendo transcripts locais…", "Reading local transcripts…") }
+        let sessWord = u.fiveHourSessions == 1 ? L10n.t("sessão", "session") : L10n.t("sessões", "sessions")
         var parts = [
             "\(formatTokens(u.fiveHourTokens)) tokens",
-            "\(u.fiveHourMessages) turnos",
-            "\(u.fiveHourSessions) \(u.fiveHourSessions == 1 ? "sessão" : "sessões")"
+            "\(u.fiveHourMessages) \(L10n.t("turnos", "turns"))",
+            "\(u.fiveHourSessions) \(sessWord)"
         ]
         if u.fiveHourCostUSD > 0.009 {
             parts.append(String(format: "$%.2f", u.fiveHourCostUSD))
@@ -172,15 +183,16 @@ struct PlanUsageTabView: View {
     }
 
     private var sevenDaySummary: String {
-        guard let u = localUsage else { return "Lendo transcripts locais…" }
+        guard let u = localUsage else { return L10n.t("Lendo transcripts locais…", "Reading local transcripts…") }
         var parts = [
             "\(formatTokens(u.sevenDayTokens)) tokens",
-            "\(u.sevenDayMessages) turnos"
+            "\(u.sevenDayMessages) \(L10n.t("turnos", "turns"))"
         ]
         if u.sevenDayCostUSD > 0.009 {
             parts.append(String(format: "$%.2f", u.sevenDayCostUSD))
         } else {
-            parts.append("\(u.sevenDaySessions) sessões")
+            let sessWord = u.sevenDaySessions == 1 ? L10n.t("sessão", "session") : L10n.t("sessões", "sessions")
+            parts.append("\(u.sevenDaySessions) \(sessWord)")
         }
         return parts.joined(separator: " · ")
     }
@@ -204,7 +216,8 @@ private struct ClaudeWindowCard: View {
                     .foregroundStyle(.white.opacity(0.90))
                 Spacer()
                 if let resetAt, resetAt > now {
-                    Text("renova em \(formatTimeUntil(resetAt, now: now))")
+                    let until = formatTimeUntil(resetAt, now: now)
+                    Text(L10n.t("renova em \(until)", "resets in \(until)"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.55))
                 }
@@ -215,7 +228,9 @@ private struct ClaudeWindowCard: View {
                     .font(.title.weight(.bold))
                     .foregroundStyle(Theme.usageColor(for: pct))
             } else {
-                Text(statuslineInstalled ? "Aguarda 1ª resposta" : "Instale a status line nas Configurações")
+                Text(statuslineInstalled
+                     ? L10n.t("Aguarda 1ª resposta", "Waiting for 1st reply")
+                     : L10n.t("Instale a status line nas Configurações", "Install status line in Settings"))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(statuslineInstalled ? .white.opacity(0.55) : Theme.amber)
                     .padding(.vertical, 4)
@@ -258,7 +273,7 @@ private struct SpendLimitCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Limite de gasto", systemImage: "creditcard.fill")
+                Label(L10n.t("Limite de gasto", "Spend limit"), systemImage: "creditcard.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.90))
                 Spacer()
@@ -272,7 +287,8 @@ private struct SpendLimitCard: View {
                         .foregroundStyle(Theme.usageColor(for: pct))
                 }
                 if let resetAt, resetAt > now {
-                    Text("· renova em \(formatTimeUntil(resetAt, now: now))")
+                    let until = formatTimeUntil(resetAt, now: now)
+                    Text(L10n.t("· renova em \(until)", "· resets in \(until)"))
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.55))
                 }

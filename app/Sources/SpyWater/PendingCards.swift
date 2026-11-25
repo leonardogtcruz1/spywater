@@ -44,18 +44,20 @@ struct PermissionCard: View {
             let tool = rule.str("toolName") ?? request.toolName
             if let content = rule.nonEmptyStr("ruleContent") {
                 let short = content.count > 28 ? String(content.prefix(28)) + "…" : content
-                return "Sempre permitir \(tool)(\(short))"
+                return L10n.t("Sempre permitir \(tool)(\(short))", "Always allow \(tool)(\(short))")
             }
-            return "Sempre permitir \(tool)"
+            return L10n.t("Sempre permitir \(tool)", "Always allow \(tool)")
         }
         if s.str("type") == "setMode", let mode = s.nonEmptyStr("mode") {
-            return "Sempre permitir (modo \(mode))"
+            return L10n.t("Sempre permitir (modo \(mode))", "Always allow (\(mode) mode)")
         }
-        return "Permitir sempre"
+        return L10n.t("Permitir sempre", "Always allow")
     }
 
     private var releaseLabel: String {
-        request.source == .antigravity ? "Responder no Antigravity" : "Responder no terminal"
+        request.source == .antigravity
+            ? L10n.t("Responder no Antigravity", "Answer in Antigravity")
+            : L10n.t("Responder no terminal", "Answer in terminal")
     }
 
     var body: some View {
@@ -78,17 +80,17 @@ struct PermissionCard: View {
 
             if ui.showDenyField {
                 HStack(spacing: 8) {
-                    TextField("Instrução…", text: $ui.denyMessage)
+                    TextField(L10n.t("Instrução…", "Instruction…"), text: $ui.denyMessage)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit {
                             store.deny(request, message: ui.denyMessage)
                         }
-                    Button("Enviar negação") {
+                    Button(L10n.t("Enviar negação", "Send denial")) {
                         store.deny(request, message: ui.denyMessage)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.coral)
-                    Button("Cancelar") {
+                    Button(L10n.t("Cancelar", "Cancel")) {
                         ui.showDenyField = false
                     }
                     .buttonStyle(.borderless)
@@ -97,14 +99,14 @@ struct PermissionCard: View {
 
             HStack(spacing: 8) {
                 if isTopmost {
-                    Button("Permitir") {
+                    Button(L10n.t("Permitir", "Allow")) {
                         store.allow(request)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.emerald)
                     .keyboardShortcut(.return, modifiers: .command)
                 } else {
-                    Button("Permitir") {
+                    Button(L10n.t("Permitir", "Allow")) {
                         store.allow(request)
                     }
                     .buttonStyle(.borderedProminent)
@@ -119,13 +121,13 @@ struct PermissionCard: View {
                     .lineLimit(1)
                 }
 
-                Button("Negar") {
+                Button(L10n.t("Negar", "Deny")) {
                     store.deny(request)
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.coral)
 
-                Button("Negar com instrução…") {
+                Button(L10n.t("Negar com instrução…", "Deny with note…")) {
                     ui.showDenyField.toggle()
                 }
                 .buttonStyle(.bordered)
@@ -151,9 +153,9 @@ struct PermissionCard: View {
 
     private var timerText: String {
         if let rem = remaining {
-            return "esperando há \(elapsed) s · fallback em \(rem) s"
+            return L10n.t("esperando há \(elapsed) s · fallback em \(rem) s", "waiting \(elapsed)s · fallback in \(rem)s")
         }
-        return "esperando há \(elapsed) s"
+        return L10n.t("esperando há \(elapsed) s", "waiting \(elapsed)s")
     }
 
     @ViewBuilder
@@ -209,8 +211,8 @@ struct PermissionCard: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.75))
                 HStack(alignment: .top, spacing: 8) {
-                    DiffBlock(title: "Remover", text: truncateLines(oldStr, max: 30), tint: Theme.coral)
-                    DiffBlock(title: "Adicionar", text: truncateLines(newStr, max: 30), tint: Theme.emerald)
+                    DiffBlock(title: L10n.t("Remover", "Remove"), text: truncateLines(oldStr, max: 30), tint: Theme.coral)
+                    DiffBlock(title: L10n.t("Adicionar", "Add"), text: truncateLines(newStr, max: 30), tint: Theme.emerald)
                 }
             }
 
@@ -246,13 +248,13 @@ struct PermissionCard: View {
             let reason = request.toolInput.nonEmptyStr("Reason")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text("Ação:")
+                    Text(L10n.t("Ação:", "Action:"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.65))
                     Text(action)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.white)
-                    Text("· Alvo:")
+                    Text(L10n.t("· Alvo:", "· Target:"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.65))
                     Text(target)
@@ -289,7 +291,8 @@ struct PermissionCard: View {
     private func truncateLines(_ s: String, max maxLines: Int) -> String {
         let lines = s.split(separator: "\n", omittingEmptySubsequences: false)
         if lines.count <= maxLines { return s }
-        return lines.prefix(maxLines).joined(separator: "\n") + "\n… (\(lines.count - maxLines) linhas ocultas)"
+        let extra = lines.count - maxLines
+        return lines.prefix(maxLines).joined(separator: "\n") + "\n… (\(extra) \(L10n.t("linhas ocultas", "hidden lines")))"
     }
 }
 
@@ -304,7 +307,7 @@ private struct DiffBlock: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(tint)
             ScrollView {
-                Text(text.isEmpty ? "(vazio)" : text)
+                Text(text.isEmpty ? L10n.t("(vazio)", "(empty)") : text)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.90))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -347,11 +350,15 @@ struct QuestionCard: View {
     }
 
     private var releaseLabel: String {
-        request.source == .antigravity ? "Responder no Antigravity" : "Responder no terminal"
+        request.source == .antigravity
+            ? L10n.t("Responder no Antigravity", "Answer in Antigravity")
+            : L10n.t("Responder no terminal", "Answer in terminal")
     }
 
     private var headerLabel: String {
-        request.source == .antigravity ? "Pergunta do Antigravity" : "Pergunta do Claude"
+        request.source == .antigravity
+            ? L10n.t("Pergunta do Antigravity", "Antigravity Question")
+            : L10n.t("Pergunta do Claude", "Claude Question")
     }
 
     private func answerFor(index: Int, q: [String: Any]) -> String? {
@@ -393,7 +400,8 @@ struct QuestionCard: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.amber)
                 Spacer()
-                Text("esperando há \(max(0, Int(store.now.timeIntervalSince(request.createdAt)))) s")
+                let waited = max(0, Int(store.now.timeIntervalSince(request.createdAt)))
+                Text(L10n.t("esperando há \(waited) s", "waiting \(waited)s"))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.60))
             }
@@ -403,7 +411,7 @@ struct QuestionCard: View {
             }
 
             HStack {
-                Button("Enviar resposta") {
+                Button(L10n.t("Enviar resposta", "Send answer")) {
                     var answers: [String: String] = [:]
                     for (idx, q) in questions.enumerated() {
                         if let qText = q.str("question"), let ans = answerFor(index: idx, q: q) {
@@ -442,7 +450,9 @@ private struct QuestionBlock: View {
     @ObservedObject var ui: QuestionCardState
 
     private var header: String? { questionData.nonEmptyStr("header") }
-    private var questionText: String { questionData.str("question") ?? "Pergunta \(index + 1)" }
+    private var questionText: String {
+        questionData.str("question") ?? L10n.t("Pergunta \(index + 1)", "Question \(index + 1)")
+    }
     private var isMulti: Bool { questionData.bool("multiSelect") ?? questionData.bool("is_multi_select") ?? false }
 
     private var parsedOptions: [(label: String, description: String?)] {
@@ -477,10 +487,10 @@ private struct QuestionBlock: View {
             }
 
             HStack(spacing: 6) {
-                Text("Outro:")
+                Text(L10n.t("Outro:", "Other:"))
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.70))
-                TextField("Digite sua resposta…", text: ui.bindingForOther(index: index, isMulti: isMulti))
+                TextField(L10n.t("Digite sua resposta…", "Type your answer…"), text: ui.bindingForOther(index: index, isMulti: isMulti))
                     .textFieldStyle(.roundedBorder)
             }
         }
@@ -541,7 +551,7 @@ struct PlanCard: View {
     @StateObject private var ui = PlanCardState()
 
     private var planText: String {
-        request.toolInput.nonEmptyStr("plan") ?? "(Plano vazio)"
+        request.toolInput.nonEmptyStr("plan") ?? L10n.t("(Plano vazio)", "(Empty plan)")
     }
 
     private var renderedMarkdown: AttributedString {
@@ -554,11 +564,12 @@ struct PlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Plano pronto para aprovação", systemImage: "doc.text.magnifyingglass")
+                Label(L10n.t("Plano pronto para aprovação", "Plan ready for approval"), systemImage: "doc.text.magnifyingglass")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.coral)
                 Spacer()
-                Text("esperando há \(max(0, Int(store.now.timeIntervalSince(request.createdAt)))) s")
+                let waited = max(0, Int(store.now.timeIntervalSince(request.createdAt)))
+                Text(L10n.t("esperando há \(waited) s", "waiting \(waited)s"))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.60))
             }
@@ -577,17 +588,17 @@ struct PlanCard: View {
 
             if ui.showRejectField {
                 HStack(spacing: 8) {
-                    TextField("Feedback para ajustar o plano…", text: $ui.feedback)
+                    TextField(L10n.t("Feedback para ajustar o plano…", "Feedback to adjust the plan…"), text: $ui.feedback)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit {
                             store.deny(request, message: ui.feedback)
                         }
-                    Button("Enviar feedback") {
+                    Button(L10n.t("Enviar feedback", "Send feedback")) {
                         store.deny(request, message: ui.feedback)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.coral)
-                    Button("Cancelar") {
+                    Button(L10n.t("Cancelar", "Cancel")) {
                         ui.showRejectField = false
                     }
                     .buttonStyle(.borderless)
@@ -595,13 +606,13 @@ struct PlanCard: View {
             }
 
             HStack {
-                Button("Aprovar plano") {
+                Button(L10n.t("Aprovar plano", "Approve plan")) {
                     store.allow(request)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.emerald)
 
-                Button("Rejeitar com feedback…") {
+                Button(L10n.t("Rejeitar com feedback…", "Reject with feedback…")) {
                     ui.showRejectField.toggle()
                 }
                 .buttonStyle(.bordered)
@@ -609,7 +620,7 @@ struct PlanCard: View {
 
                 Spacer()
 
-                Button("Responder no terminal") {
+                Button(L10n.t("Responder no terminal", "Answer in terminal")) {
                     store.release(request)
                 }
                 .buttonStyle(.borderless)

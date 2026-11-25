@@ -1,15 +1,31 @@
 import SwiftUI
 
 private enum MainTab: String, CaseIterable {
-    case sessions = "Sessões"
-    case missions = "Missões"
-    case usage = "Uso do plano"
+    case sessions
+    case missions
+    case usage
+
+    var label: String {
+        switch self {
+        case .sessions: return L10n.t("Sessões", "Sessions")
+        case .missions: return L10n.t("Missões", "Missions")
+        case .usage: return L10n.t("Uso do plano", "Plan Usage")
+        }
+    }
 }
 
 private enum SourceFilter: String, CaseIterable {
-    case all = "Todos"
-    case claude = "Claude"
-    case agy = "Antigravity"
+    case all
+    case claude
+    case agy
+
+    var label: String {
+        switch self {
+        case .all: return L10n.t("Todos", "All")
+        case .claude: return "Claude"
+        case .agy: return "Antigravity"
+        }
+    }
 
     func matches(_ source: SessionSource) -> Bool {
         switch self {
@@ -98,7 +114,7 @@ struct DashboardView: View {
                         Text(err)
                             .font(.callout.weight(.medium))
                         Spacer()
-                        Button("Tentar novamente") {
+                        Button(L10n.t("Tentar novamente", "Try again")) {
                             store.server.start()
                         }
                         .buttonStyle(.bordered)
@@ -134,7 +150,7 @@ struct DashboardView: View {
                                 .padding(6)
                         }
                         .buttonStyle(.plain)
-                        .help("Atualizar uso e sessões recentes")
+                        .help(L10n.t("Atualizar uso e sessões recentes", "Refresh usage and recent sessions"))
 
                         if #available(macOS 14.0, *) {
                             SettingsLink {
@@ -144,7 +160,7 @@ struct DashboardView: View {
                                     .padding(6)
                             }
                             .buttonStyle(.plain)
-                            .help("Configurações")
+                            .help(L10n.t("Configurações", "Settings"))
                         }
                     }
                 }
@@ -199,7 +215,7 @@ struct DashboardView: View {
                             Image(systemName: "chart.bar.fill")
                                 .font(.caption2)
                         }
-                        Text(tab.rawValue)
+                        Text(tab.label)
                             .font(.subheadline.weight(isSelected ? .semibold : .medium))
                         if tab == .sessions && store.attentionCount > 0 {
                             HStack(spacing: 3) {
@@ -243,7 +259,7 @@ struct DashboardView: View {
                             ui.filter = mode
                         } label: {
                             VStack(spacing: 3) {
-                                Text(mode.rawValue)
+                                Text(mode.label)
                                     .font(.caption.weight(isSelected ? .semibold : .regular))
                                     .foregroundStyle(isSelected ? .white : .white.opacity(0.52))
                                 Rectangle()
@@ -264,7 +280,7 @@ struct DashboardView: View {
                 if !needsYouSessions.isEmpty {
                     HStack(spacing: 7) {
                         AttentionBellIcon(color: Theme.coral, urgent: true)
-                        Text("Precisa de você")
+                        Text(L10n.t("Precisa de você", "Needs you"))
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white.opacity(0.92))
                     }
@@ -278,7 +294,7 @@ struct DashboardView: View {
                 if !workingSessions.isEmpty {
                     HStack(spacing: 7) {
                         WorkingWaveBars(tint: Theme.aqua)
-                        Text("Trabalhando")
+                        Text(L10n.t("Trabalhando", "Working"))
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white.opacity(0.92))
                     }
@@ -290,7 +306,7 @@ struct DashboardView: View {
                 }
 
                 if !idleSessions.isEmpty {
-                    Text("Prontas")
+                    Text(L10n.t("Prontas", "Ready"))
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white.opacity(0.80))
                         .padding(.top, 4)
@@ -301,7 +317,7 @@ struct DashboardView: View {
                 }
 
                 if !filteredRecent.isEmpty {
-                    Text("Recentes")
+                    Text(L10n.t("Recentes", "Recent"))
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white.opacity(0.75))
                         .padding(.top, 6)
@@ -333,10 +349,10 @@ struct DashboardView: View {
             Image(systemName: "eye")
                 .font(.title2)
                 .foregroundStyle(Theme.brandGradient)
-            Text("Nenhuma sessão ativa")
+            Text(L10n.t("Nenhuma sessão ativa", "No active sessions"))
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("Abra o `claude` no terminal ou uma conversa no Antigravity.")
+            Text(L10n.t("Abra o `claude` no terminal ou uma conversa no Antigravity.", "Open `claude` in your terminal or start a conversation in Antigravity."))
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.60))
                 .multilineTextAlignment(.center)
@@ -387,13 +403,13 @@ private struct RecentRow: View {
                 .foregroundStyle(.white.opacity(0.45))
 
             if item.source == .antigravity {
-                Button("Abrir") {
+                Button(L10n.t("Abrir", "Open")) {
                     Actions.focusAntigravity(title: item.displayTitle, projectName: item.projectName)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             } else {
-                Button("Retomar") {
+                Button(L10n.t("Retomar", "Resume")) {
                     Actions.resume(sessionId: item.id, cwd: item.cwd, terminal: store.terminalApp)
                 }
                 .buttonStyle(.bordered)
@@ -414,12 +430,14 @@ private struct RecentRow: View {
                 Actions.resume(sessionId: item.id, cwd: item.cwd, terminal: store.terminalApp)
             }
         }
-        .help(item.source == .antigravity ? "Clique para abrir no Antigravity" : "Clique para retomar no terminal")
+        .help(item.source == .antigravity
+              ? L10n.t("Clique para abrir no Antigravity", "Click to open in Antigravity")
+              : L10n.t("Clique para retomar no terminal", "Click to resume in terminal"))
         .contextMenu {
-            Button("Abrir pasta") {
+            Button(L10n.t("Abrir pasta", "Open folder")) {
                 Actions.openInFinder(cwd: item.cwd)
             }
-            Button("Copiar ID") {
+            Button(L10n.t("Copiar ID", "Copy ID")) {
                 Actions.copyToClipboard(item.id)
             }
         }

@@ -13,7 +13,7 @@ private final class MissionComposerState: ObservableObject {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Selecionar pasta"
+        panel.prompt = L10n.t("Selecionar pasta", "Select folder")
         if panel.runModal() == .OK, let url = panel.url {
             projectPath = url.path
         }
@@ -73,7 +73,7 @@ struct MissionsView: View {
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.aqua)
-                Text("Nova missão · Divisor de tarefas (Claude Code)")
+                Text(L10n.t("Nova missão · Divisor de tarefas (Claude Code)", "New mission · Task splitter (Claude Code)"))
                     .font(.headline)
                     .foregroundStyle(.white)
             }
@@ -87,7 +87,10 @@ struct MissionsView: View {
                     .frame(height: 88)
 
                 if composer.goal.isEmpty {
-                    Text("Ex.: Crie uma API REST em Node com autenticação JWT, testes e frontend React…")
+                    Text(L10n.t(
+                        "Ex.: Crie uma API REST em Node com autenticação JWT, testes e frontend React…",
+                        "e.g. Build a Node REST API with JWT auth, tests, and React frontend…"
+                    ))
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.35))
                         .padding(.horizontal, 11)
@@ -100,10 +103,10 @@ struct MissionsView: View {
             .cornerRadius(8)
 
             HStack(spacing: 8) {
-                TextField("Pasta do projeto (ex.: ~/Desktop/meu-app)", text: $composer.projectPath)
+                TextField(L10n.t("Pasta do projeto (ex.: ~/Desktop/meu-app)", "Project folder (e.g. ~/Desktop/my-app)"), text: $composer.projectPath)
                     .textFieldStyle(.roundedBorder)
 
-                Button("Escolher pasta…") {
+                Button(L10n.t("Escolher pasta…", "Choose folder…")) {
                     composer.pickFolder()
                 }
                 .buttonStyle(.bordered)
@@ -111,7 +114,7 @@ struct MissionsView: View {
 
             HStack(spacing: 14) {
                 HStack(spacing: 6) {
-                    Text("Agentes paralelos:")
+                    Text(L10n.t("Agentes paralelos:", "Parallel agents:"))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.70))
                     Picker("", selection: $composer.maxWorkers) {
@@ -125,7 +128,7 @@ struct MissionsView: View {
                 }
 
                 HStack(spacing: 6) {
-                    Text("Permissões:")
+                    Text(L10n.t("Permissões:", "Permissions:"))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.70))
                     Picker("", selection: $composer.permissionMode) {
@@ -148,7 +151,7 @@ struct MissionsView: View {
                     )
                     composer.goal = ""
                 } label: {
-                    Label("Dividir e iniciar", systemImage: "play.fill")
+                    Label(L10n.t("Dividir e iniciar", "Split & start"), systemImage: "play.fill")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
@@ -164,10 +167,13 @@ struct MissionsView: View {
 
     private var emptyMissionsCard: some View {
         VStack(spacing: 6) {
-            Text("Nenhuma missão criada ainda")
+            Text(L10n.t("Nenhuma missão criada ainda", "No missions yet"))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.85))
-            Text("Descreva o que deseja construir acima: o SpyWater divide automaticamente em subtarefas e mantém vários agentes rodando em git worktrees até terminar.")
+            Text(L10n.t(
+                "Descreva o que deseja construir acima: o SpyWater divide automaticamente em subtarefas e mantém vários agentes rodando em git worktrees até terminar.",
+                "Describe what you want to build above: SpyWater automatically splits it into subtasks and keeps parallel agents running in git worktrees until done."
+            ))
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
@@ -216,11 +222,11 @@ private struct MissionCardView: View {
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.55))
                         if !mission.tasks.isEmpty {
-                            Text("· \(mission.completedCount)/\(mission.tasks.count) tarefas")
+                            Text("· \(mission.completedCount)/\(mission.tasks.count) \(L10n.t("tarefas", "tasks"))")
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.70))
                         }
-                        Text("· até \(mission.maxWorkers) agentes")
+                        Text(L10n.t("· até \(mission.maxWorkers) agentes", "· up to \(mission.maxWorkers) agents"))
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.45))
                     }
@@ -274,7 +280,9 @@ private struct MissionCardView: View {
                     onToggleLogs()
                 } label: {
                     Label(
-                        logsExpanded ? "Ocultar logs" : "Ver logs (\(mission.logs.count))",
+                        logsExpanded
+                            ? L10n.t("Ocultar logs", "Hide logs")
+                            : L10n.t("Ver logs (\(mission.logs.count))", "Show logs (\(mission.logs.count))"),
                         systemImage: logsExpanded ? "chevron.up" : "chevron.down"
                     )
                     .font(.caption)
@@ -284,7 +292,7 @@ private struct MissionCardView: View {
 
                 Spacer()
 
-                Button("Abrir pasta") {
+                Button(L10n.t("Abrir pasta", "Open folder")) {
                     Actions.openInFinder(cwd: mission.projectPath)
                 }
                 .buttonStyle(.borderless)
@@ -339,14 +347,14 @@ private struct MissionCardView: View {
     private var controlButtons: some View {
         HStack(spacing: 6) {
             if mission.status == .planning || mission.status == .running {
-                Button("Pausar") {
+                Button(L10n.t("Pausar", "Pause")) {
                     engine.pauseMission(id: mission.id)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
             if mission.status == .paused || mission.status == .failed {
-                Button("Retomar") {
+                Button(L10n.t("Retomar", "Resume")) {
                     engine.resumeMission(id: mission.id)
                 }
                 .buttonStyle(.borderedProminent)
@@ -354,7 +362,7 @@ private struct MissionCardView: View {
                 .controlSize(.small)
             }
             if mission.status == .planning || mission.status == .running || mission.status == .paused {
-                Button("Cancelar") {
+                Button(L10n.t("Cancelar", "Cancel")) {
                     engine.cancelMission(id: mission.id)
                 }
                 .buttonStyle(.bordered)
@@ -362,7 +370,7 @@ private struct MissionCardView: View {
                 .controlSize(.small)
             }
             if mission.status == .completed || mission.status == .failed || mission.status == .cancelled {
-                Button("Remover") {
+                Button(L10n.t("Remover", "Remove")) {
                     engine.deleteMission(id: mission.id)
                 }
                 .buttonStyle(.borderless)
@@ -398,13 +406,14 @@ private struct MissionTaskRow: View {
                         .foregroundStyle(.white)
 
                     if !task.dependsOn.isEmpty {
-                        Text("após \(task.dependsOn.joined(separator: ", "))")
+                        let deps = task.dependsOn.joined(separator: ", ")
+                        Text(L10n.t("após \(deps)", "after \(deps)"))
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.45))
                     }
 
                     if task.attempts > 1 {
-                        Text("tentativa \(task.attempts)/\(task.maxAttempts)")
+                        Text(L10n.t("tentativa \(task.attempts)/\(task.maxAttempts)", "attempt \(task.attempts)/\(task.maxAttempts)"))
                             .font(.caption2)
                             .foregroundStyle(Theme.amber)
                     }
@@ -412,7 +421,7 @@ private struct MissionTaskRow: View {
                     Spacer()
 
                     if task.status == .failed {
-                        Button("Tentar de novo") {
+                        Button(L10n.t("Tentar de novo", "Retry")) {
                             engine.retryTask(missionId: missionId, taskId: task.id)
                         }
                         .buttonStyle(.bordered)

@@ -11,12 +11,12 @@ enum MissionStatus: String, Codable {
 
     var label: String {
         switch self {
-        case .planning: return "Planejando"
-        case .running: return "Executando"
-        case .paused: return "Pausada"
-        case .completed: return "Concluída"
-        case .failed: return "Falhou"
-        case .cancelled: return "Cancelada"
+        case .planning: return L10n.t("Planejando", "Planning")
+        case .running: return L10n.t("Executando", "Running")
+        case .paused: return L10n.t("Pausada", "Paused")
+        case .completed: return L10n.t("Concluída", "Completed")
+        case .failed: return L10n.t("Falhou", "Failed")
+        case .cancelled: return L10n.t("Cancelada", "Cancelled")
         }
     }
 
@@ -42,12 +42,12 @@ enum MissionTaskStatus: String, Codable {
 
     var label: String {
         switch self {
-        case .pending: return "Na fila"
-        case .running: return "Executando"
-        case .merging: return "Fazendo merge"
-        case .done: return "Concluída"
-        case .failed: return "Falhou"
-        case .blocked: return "Bloqueada"
+        case .pending: return L10n.t("Na fila", "Queued")
+        case .running: return L10n.t("Executando", "Running")
+        case .merging: return L10n.t("Fazendo merge", "Merging")
+        case .done: return L10n.t("Concluída", "Done")
+        case .failed: return L10n.t("Falhou", "Failed")
+        case .blocked: return L10n.t("Bloqueada", "Blocked")
         }
     }
 
@@ -69,8 +69,8 @@ enum MissionPermissionMode: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .spywaterGate: return "Aprovar comandos no SpyWater"
-        case .autonomous: return "Autônomo (sem pausas)"
+        case .spywaterGate: return L10n.t("Aprovar comandos no SpyWater", "Approve commands in SpyWater")
+        case .autonomous: return L10n.t("Autônomo (sem pausas)", "Autonomous (no pauses)")
         }
     }
 }

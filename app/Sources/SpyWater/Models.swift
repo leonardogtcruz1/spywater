@@ -49,13 +49,13 @@ enum SessionState: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .needsYou: return "Precisa de você"
-        case .waitingTerminal: return "Esperando no terminal"
-        case .yourTurn: return "Sua vez"
-        case .error: return "Erro"
-        case .working: return "Trabalhando"
-        case .idle: return "Pronta"
-        case .ended: return "Encerrada"
+        case .needsYou: return L10n.t("Precisa de você", "Needs you")
+        case .waitingTerminal: return L10n.t("Esperando no terminal", "Waiting in terminal")
+        case .yourTurn: return L10n.t("Sua vez", "Your turn")
+        case .error: return L10n.t("Erro", "Error")
+        case .working: return L10n.t("Trabalhando", "Working")
+        case .idle: return L10n.t("Pronta", "Ready")
+        case .ended: return L10n.t("Encerrada", "Ended")
         }
     }
 

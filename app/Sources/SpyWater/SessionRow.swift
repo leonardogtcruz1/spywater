@@ -122,7 +122,7 @@ struct SessionRow: View {
 
                             if state != .working || hover.isHovered {
                                 HStack(spacing: 3) {
-                                    Text("Abrir")
+                                    Text(L10n.t("Abrir", "Open"))
                                         .font(.caption2.weight(.semibold))
                                     Image(systemName: "arrow.up.forward")
                                         .font(.caption2.weight(.semibold))
@@ -165,7 +165,7 @@ struct SessionRow: View {
                     .onTapGesture {
                         Actions.openLiveSession(session, terminal: store.terminalApp)
                     }
-                    .help("Clique para ir até este agente")
+                    .help(L10n.t("Clique para ir até este agente", "Click to jump to this agent"))
 
                     if !sessionPending.isEmpty {
                         VStack(spacing: 8) {
@@ -201,13 +201,15 @@ struct SessionRow: View {
             }
         }
         .contextMenu {
-            Button(session.source == .antigravity ? "Focar Antigravity" : "Focar terminal") {
+            Button(session.source == .antigravity
+                   ? L10n.t("Focar Antigravity", "Focus Antigravity")
+                   : L10n.t("Focar terminal", "Focus terminal")) {
                 Actions.openLiveSession(session, terminal: store.terminalApp)
             }
-            Button("Abrir pasta") {
+            Button(L10n.t("Abrir pasta", "Open folder")) {
                 Actions.openInFinder(cwd: session.cwd)
             }
-            Button("Copiar ID") {
+            Button(L10n.t("Copiar ID", "Copy ID")) {
                 Actions.copyToClipboard(session.id)
             }
         }
@@ -242,7 +244,7 @@ struct SessionRow: View {
                         .foregroundStyle(isHigh ? Theme.coral : .white.opacity(0.62))
                 }
                 if isHigh {
-                    Text("considere /compact")
+                    Text(L10n.t("considere /compact", "consider /compact"))
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(Theme.coral)
                 }

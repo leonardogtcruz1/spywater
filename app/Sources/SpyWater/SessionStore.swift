@@ -17,6 +17,7 @@ final class SessionStore: ObservableObject {
     let server = HookServer()
     let notifier = Notifier()
     private let usageTracker = UsageTracker()
+    private let isDemoMode = ProcessInfo.processInfo.environment["SPYWATER_DEMO"] == "1"
 
     var onOpenMainWindow: (() -> Void)?
 
@@ -288,7 +289,7 @@ final class SessionStore: ObservableObject {
             cwd: payloadCwd ?? NSHomeDirectory(),
             projectName: Self.projectName(from: payloadCwd ?? NSHomeDirectory()),
             state: .idle,
-            activity: "Sessão ativa",
+            activity: L10n.t("Sessão ativa", "Active session"),
             startedAt: timestamp,
             lastEventAt: timestamp
         )
@@ -355,7 +356,7 @@ final class SessionStore: ObservableObject {
         switch event {
         case "SessionStart":
             sessions[id]?.state = .idle
-            sessions[id]?.activity = "Sessão iniciada"
+            sessions[id]?.activity = L10n.t("Sessão iniciada", "Session started")
             if let m = payload.nonEmptyStr("model"), sessions[id]?.hasStatuslineModel == false {
                 sessions[id]?.model = formatModelName(m)
             }
@@ -369,7 +370,7 @@ final class SessionStore: ObservableObject {
             if let prompt = payload.nonEmptyStr("prompt") {
                 sessions[id]?.lastPrompt = prompt
             }
-            sessions[id]?.activity = "Pensando…"
+            sessions[id]?.activity = L10n.t("Pensando…", "Thinking…")
             sessions[id]?.hasPermissionPromptInTerminal = false
 
         case "PreToolUse":
@@ -378,7 +379,7 @@ final class SessionStore: ObservableObject {
 
         case "PostToolUse", "PostToolUseFailure", "PermissionDenied":
             sessions[id]?.state = .working
-            sessions[id]?.activity = "Pensando…"
+            sessions[id]?.activity = L10n.t("Pensando…", "Thinking…")
             let stale = pending.filter { $0.sessionId == id && $0.kind == .permission && $0.toolName == toolName }
             for req in stale {
                 release(req)
@@ -386,7 +387,7 @@ final class SessionStore: ObservableObject {
 
         case "Notification":
             let ntype = payload.nonEmptyStr("notification_type") ?? payload.nonEmptyStr("type") ?? ""
-            let msg = payload.nonEmptyStr("message") ?? "Aguardando no terminal"
+            let msg = payload.nonEmptyStr("message") ?? L10n.t("Aguardando no terminal", "Waiting in terminal")
             if ["permission_prompt", "elicitation_dialog", "elicitation_url_dialog", "agent_needs_input"].contains(ntype) {
                 sessions[id]?.hasPermissionPromptInTerminal = true
                 if !pending.contains(where: { $0.sessionId == id }) {
@@ -403,10 +404,10 @@ final class SessionStore: ObservableObject {
             let bgTasks = payload.anyArr("background_tasks") ?? []
             if !bgTasks.isEmpty {
                 sessions[id]?.state = .working
-                sessions[id]?.activity = "Aguardando tarefas em segundo plano"
+                sessions[id]?.activity = L10n.t("Aguardando tarefas em segundo plano", "Waiting for background tasks")
             } else {
                 sessions[id]?.state = .yourTurn
-                sessions[id]?.activity = "Aguardando sua instrução"
+                sessions[id]?.activity = L10n.t("Aguardando sua instrução", "Waiting for your input")
                 if let s = sessions[id] {
                     notifier.notifyYourTurn(session: s)
                 }
@@ -421,11 +422,11 @@ final class SessionStore: ObservableObject {
             sessions[id]?.state = .error
             sessions[id]?.activity = payload.nonEmptyStr("error")
                 ?? payload.nonEmptyStr("message")
-                ?? "Erro na resposta"
+                ?? L10n.t("Erro na resposta", "Response error")
 
         case "SessionEnd":
             sessions[id]?.state = .ended
-            sessions[id]?.activity = "Sessão encerrada"
+            sessions[id]?.activity = L10n.t("Sessão encerrada", "Session ended")
             let orphans = pending.filter { $0.sessionId == id }
             for req in orphans {
                 release(req)
@@ -503,7 +504,7 @@ final class SessionStore: ObservableObject {
             cwd: cwd,
             projectName: Self.projectName(from: cwd),
             state: .working,
-            activity: "Conversa ativa",
+            activity: L10n.t("Conversa ativa", "Active conversation"),
             startedAt: timestamp,
             lastEventAt: timestamp
         )
@@ -536,12 +537,12 @@ final class SessionStore: ObservableObject {
         switch event {
         case "SessionStart":
             sessions[id]?.state = .idle
-            sessions[id]?.activity = "Conversa iniciada"
+            sessions[id]?.activity = L10n.t("Conversa iniciada", "Conversation started")
             refreshAgyTranscript(for: id)
 
         case "PreInvocation":
             sessions[id]?.state = .working
-            sessions[id]?.activity = "Pensando…"
+            sessions[id]?.activity = L10n.t("Pensando…", "Thinking…")
 
         case "PostInvocation":
             refreshAgyTranscript(for: id)
@@ -552,9 +553,10 @@ final class SessionStore: ObservableObject {
             let err = payload.nonEmptyStr("error")
             sessions[id]?.state = .working
             if let err {
-                sessions[id]?.activity = "Erro em \(toolName.isEmpty ? "ferramenta" : toolName): \(err)"
+                let fallbackTool = L10n.t("ferramenta", "tool")
+                sessions[id]?.activity = L10n.t("Erro em \(toolName.isEmpty ? fallbackTool : toolName): \(err)", "Error in \(toolName.isEmpty ? fallbackTool : toolName): \(err)")
             } else {
-                sessions[id]?.activity = "Pensando…"
+                sessions[id]?.activity = L10n.t("Pensando…", "Thinking…")
             }
             let stale = pending.filter {
                 $0.sessionId == id && $0.source == .antigravity && $0.kind == .permission && $0.toolName == toolName
@@ -569,13 +571,13 @@ final class SessionStore: ObservableObject {
             let err = payload.nonEmptyStr("error")
             if !fullyIdle {
                 sessions[id]?.state = .working
-                sessions[id]?.activity = "Aguardando tarefas em segundo plano"
+                sessions[id]?.activity = L10n.t("Aguardando tarefas em segundo plano", "Waiting for background tasks")
             } else if reason == "error" || err != nil {
                 sessions[id]?.state = .error
-                sessions[id]?.activity = err ?? "Erro na execução"
+                sessions[id]?.activity = err ?? L10n.t("Erro na execução", "Execution error")
             } else {
                 sessions[id]?.state = .yourTurn
-                sessions[id]?.activity = "Aguardando sua instrução"
+                sessions[id]?.activity = L10n.t("Aguardando sua instrução", "Waiting for your input")
                 if let s = sessions[id] {
                     notifier.notifyYourTurn(session: s)
                 }
@@ -656,7 +658,7 @@ final class SessionStore: ObservableObject {
                     cwd: cwd,
                     projectName: Self.projectName(from: cwd),
                     state: .idle,
-                    activity: "Sessão ativa",
+                    activity: L10n.t("Sessão ativa", "Active session"),
                     startedAt: timestamp,
                     lastEventAt: timestamp
                 )
@@ -962,6 +964,7 @@ final class SessionStore: ObservableObject {
     }
 
     func syncAntigravitySummaries() {
+        if isDemoMode { return }
         AntigravityScanner.scanSummaries { [weak self] summaries in
             guard let self else { return }
             let current = Date()
@@ -976,7 +979,7 @@ final class SessionStore: ObservableObject {
                         projectName: summary.projectName,
                         title: summary.title.isEmpty ? nil : summary.title,
                         state: .working,
-                        activity: "Trabalhando no Antigravity…",
+                        activity: L10n.t("Trabalhando no Antigravity…", "Working in Antigravity…"),
                         transcriptPath: summary.transcriptPath,
                         startedAt: summary.lastModifiedAt,
                         lastEventAt: summary.lastModifiedAt,
@@ -1040,6 +1043,51 @@ final class SessionStore: ObservableObject {
     }
 
     func refreshRecent() {
+        if isDemoMode {
+            let now = Date()
+            claudeRecent = [
+                RecentSession(
+                    id: "demo-recent-1",
+                    source: .claudeCode,
+                    cwd: "/Users/leonardocruz/Projects/payments-worker",
+                    projectName: "payments-worker",
+                    title: "Stripe idempotency keys",
+                    lastPrompt: "Add idempotency key persistence for retryable charges",
+                    model: "Sonnet 4.6",
+                    transcriptPath: "",
+                    lastActivityAt: now.addingTimeInterval(-18 * 60),
+                    costUSD: 0.92
+                ),
+                RecentSession(
+                    id: "demo-recent-3",
+                    source: .claudeCode,
+                    cwd: "/Users/leonardocruz/Projects/search-indexer",
+                    projectName: "search-indexer",
+                    title: "Vector batching pipeline",
+                    lastPrompt: "Batch embedding upserts in chunks of 128",
+                    model: "Opus 4.6",
+                    transcriptPath: "",
+                    lastActivityAt: now.addingTimeInterval(-95 * 60),
+                    costUSD: 1.45
+                )
+            ]
+            agyRecent = [
+                RecentSession(
+                    id: "demo-recent-2",
+                    source: .antigravity,
+                    cwd: "/Users/leonardocruz/Projects/design-system",
+                    projectName: "design-system",
+                    title: "Token contrast audit",
+                    lastPrompt: "Verify WCAG AA contrast ratios across dark surfaces",
+                    model: "Gemini 3 Pro (High)",
+                    transcriptPath: "",
+                    lastActivityAt: now.addingTimeInterval(-42 * 60),
+                    costUSD: nil
+                )
+            ]
+            rebuildMergedRecent()
+            return
+        }
         let liveIds = Set(sessions.values.filter { effectiveState(for: $0) != .ended }.map(\.id))
         TranscriptReader.scanRecent(excluding: liveIds) { [weak self] items in
             guard let self else { return }
@@ -1058,6 +1106,43 @@ final class SessionStore: ObservableObject {
     }
 
     func refreshLocalUsage() {
+        if isDemoMode {
+            statuslineInstalled = true
+            agyHooksInstalled = true
+            localUsage = LocalPlanUsage(
+                fiveHourTokens: 142_000,
+                fiveHourCacheRead: 510_000,
+                fiveHourMessages: 18,
+                fiveHourSessions: 3,
+                fiveHourCostUSD: 1.84,
+                sevenDayTokens: 1_420_000,
+                sevenDayCacheRead: 4_850_000,
+                sevenDayMessages: 164,
+                sevenDaySessions: 19,
+                sevenDayCostUSD: 19.40,
+                todayMessages: 26,
+                todaySessions: 4,
+                topModels: [
+                    (name: "Opus 4.6", tokens: 940_000),
+                    (name: "Sonnet 4.6", tokens: 390_000),
+                    (name: "Haiku 4.5", tokens: 90_000)
+                ],
+                agyFiveHourTokens: 96_000,
+                agyFiveHourMessages: 12,
+                agyFiveHourSessions: 2,
+                agySevenDayTokens: 620_000,
+                agySevenDayMessages: 74,
+                agySevenDaySessions: 11,
+                agyTodayMessages: 16,
+                agyTodaySessions: 3,
+                agyTopModels: [
+                    (name: "Gemini 3 Pro (High)", tokens: 440_000),
+                    (name: "Gemini 3 Flash", tokens: 180_000)
+                ],
+                updatedAt: Date()
+            )
+            return
+        }
         statuslineInstalled = Self.checkStatuslineInstalled()
         agyHooksInstalled = Self.checkAgyHooksInstalled()
         usageTracker.scan { [weak self] usage in
@@ -1180,58 +1265,58 @@ final class SessionStore: ObservableObject {
             let cmd = input.str("CommandLine") ?? ""
             let firstLine = cmd.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? cmd
             let truncated = firstLine.count > 80 ? String(firstLine.prefix(80)) + "…" : firstLine
-            return truncated.isEmpty ? "Comando" : "$ \(truncated)"
+            return truncated.isEmpty ? L10n.t("Comando", "Command") : "$ \(truncated)"
         case "Edit", "Write", "MultiEdit", "NotebookEdit":
             let filePath = input.str("file_path") ?? input.str("notebook_path") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
-            return base.isEmpty ? "Editando arquivo" : "Editando \(base)"
+            return base.isEmpty ? L10n.t("Editando arquivo", "Editing file") : L10n.t("Editando \(base)", "Editing \(base)")
         case "edit_file", "replace_file_content", "multi_replace_file_content", "write_file", "write_to_file":
             let filePath = input.str("Path") ?? input.str("TargetFile") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
-            return base.isEmpty ? "Editando arquivo" : "Editando \(base)"
+            return base.isEmpty ? L10n.t("Editando arquivo", "Editing file") : L10n.t("Editando \(base)", "Editing \(base)")
         case "Read":
             let filePath = input.str("file_path") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
-            return base.isEmpty ? "Lendo arquivo" : "Lendo \(base)"
+            return base.isEmpty ? L10n.t("Lendo arquivo", "Reading file") : L10n.t("Lendo \(base)", "Reading \(base)")
         case "read_file", "view_file":
             let filePath = input.str("Path") ?? input.str("AbsolutePath") ?? ""
             let base = filePath.isEmpty ? "" : URL(fileURLWithPath: filePath).lastPathComponent
-            return base.isEmpty ? "Lendo arquivo" : "Lendo \(base)"
+            return base.isEmpty ? L10n.t("Lendo arquivo", "Reading file") : L10n.t("Lendo \(base)", "Reading \(base)")
         case "Grep", "Glob":
             let pat = input.str("pattern") ?? ""
             let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
-            return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
+            return trunc.isEmpty ? L10n.t("Buscando", "Searching") : L10n.t("Buscando \(trunc)", "Searching \(trunc)")
         case "grep_search":
             let pat = input.str("Query") ?? ""
             let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
-            return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
+            return trunc.isEmpty ? L10n.t("Buscando", "Searching") : L10n.t("Buscando \(trunc)", "Searching \(trunc)")
         case "find_by_name":
             let pat = input.str("Pattern") ?? ""
             let trunc = pat.count > 50 ? String(pat.prefix(50)) + "…" : pat
-            return trunc.isEmpty ? "Buscando" : "Buscando \(trunc)"
+            return trunc.isEmpty ? L10n.t("Buscando", "Searching") : L10n.t("Buscando \(trunc)", "Searching \(trunc)")
         case "list_dir":
             let dirPath = input.str("DirectoryPath") ?? ""
             let base = dirPath.isEmpty ? "" : URL(fileURLWithPath: dirPath).lastPathComponent
-            return base.isEmpty ? "Listando pasta" : "Listando \(base)"
+            return base.isEmpty ? L10n.t("Listando pasta", "Listing folder") : L10n.t("Listando \(base)", "Listing \(base)")
         case "WebFetch", "WebSearch", "search_web", "read_url_content":
             let q = input.str("url") ?? input.str("Url") ?? input.str("query") ?? ""
             let trunc = q.count > 60 ? String(q.prefix(60)) + "…" : q
             return trunc.isEmpty ? "Web" : "Web: \(trunc)"
         case "Agent", "Task":
             let desc = input.str("description") ?? ""
-            return desc.isEmpty ? "Subagente" : "Subagente: \(desc)"
+            return desc.isEmpty ? L10n.t("Subagente", "Subagent") : L10n.t("Subagente: \(desc)", "Subagent: \(desc)")
         case "invoke_subagent":
             let role = input.str("Role") ?? ""
-            return role.isEmpty ? "Subagente" : "Subagente: \(role)"
+            return role.isEmpty ? L10n.t("Subagente", "Subagent") : L10n.t("Subagente: \(role)", "Subagent: \(role)")
         case "AskUserQuestion", "ask_question":
-            return "Aguardando resposta"
+            return L10n.t("Aguardando resposta", "Waiting for answer")
         case "ExitPlanMode":
-            return "Plano pronto para aprovação"
+            return L10n.t("Plano pronto para aprovação", "Plan ready for approval")
         case "ask_permission":
             let action = input.nonEmptyStr("Action") ?? ""
             let target = input.nonEmptyStr("Target") ?? ""
             let combined = [action, target].filter { !$0.isEmpty }.joined(separator: " ")
-            return combined.isEmpty ? "Solicitando permissão" : "Permissão: \(combined)"
+            return combined.isEmpty ? L10n.t("Solicitando permissão", "Requesting permission") : L10n.t("Permissão: \(combined)", "Permission: \(combined)")
         default:
             if name.hasPrefix("mcp__") {
                 let parts = name.dropFirst(5).split(separator: "__", maxSplits: 1)
@@ -1239,7 +1324,7 @@ final class SessionStore: ObservableObject {
                     return "MCP \(parts[0]) › \(parts[1])"
                 }
             }
-            return name.isEmpty ? "Executando ferramenta" : name
+            return name.isEmpty ? L10n.t("Executando ferramenta", "Running tool") : name
         }
     }
 }

@@ -44,17 +44,17 @@ private final class MascotTapState: ObservableObject {
     private var tapCount = 0
 
     private let quips = [
-        "Bloop! Tudo sob controle!",
-        "Mergulhando nos logs…",
-        "Radar ligado nas sessões!",
-        "Opa! Tô de olho aqui!"
+        L10n.t("Bloop! Tudo sob controle!", "Bloop! Everything under control!"),
+        L10n.t("Mergulhando nos logs…", "Diving into the logs…"),
+        L10n.t("Radar ligado nas sessões!", "Radar locked on sessions!"),
+        L10n.t("Opa! Tô de olho aqui!", "Hey! Keeping watch here!")
     ]
 
     func triggerTap(mood: MascotMood) {
         let current = Date()
         hopUntil = current.addingTimeInterval(0.7)
         if mood == .alert {
-            messageOverride = "Ei! Tem coisa esperando você!"
+            messageOverride = L10n.t("Ei! Tem coisa esperando você!", "Hey! Something's waiting for you!")
         } else {
             messageOverride = quips[tapCount % quips.count]
         }
@@ -77,13 +77,17 @@ struct SpyWaterMascotView: View {
         }
         switch mood {
         case .alert:
-            return attentionCount > 1 ? "\(attentionCount) precisam de você!" : "Precisa de você!"
+            return attentionCount > 1
+                ? L10n.t("\(attentionCount) precisam de você!", "\(attentionCount) need you!")
+                : L10n.t("Precisa de você!", "Needs you!")
         case .error:
-            return "Ops, erro detectado!"
+            return L10n.t("Ops, erro detectado!", "Oops, error detected!")
         case .working:
-            return workingCount > 1 ? "\(workingCount) agentes no gás!" : "Agentes trabalhando…"
+            return workingCount > 1
+                ? L10n.t("\(workingCount) agentes no gás!", "\(workingCount) agents running!")
+                : L10n.t("Agentes trabalhando…", "Agents working…")
         case .calm:
-            return "De olho nas águas…"
+            return L10n.t("De olho nas águas…", "Watching the waters…")
         }
     }
 
@@ -132,7 +136,7 @@ struct SpyWaterMascotView: View {
             .onTapGesture {
                 ui.triggerTap(mood: mood)
             }
-            .help("SpyDrop — clique para interagir")
+            .help(L10n.t("SpyDrop — clique para interagir", "SpyDrop — click to interact"))
         }
     }
 

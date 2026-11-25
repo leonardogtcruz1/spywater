@@ -450,7 +450,7 @@ final class MissionEngine: ObservableObject {
         missions[idx].tasks[tIdx].status = .running
         missions[idx].tasks[tIdx].startedAt = Date()
         missions[idx].tasks[tIdx].lastError = nil
-        missions[idx].tasks[tIdx].lastOutput = "Preparando worktree…"
+        missions[idx].tasks[tIdx].lastOutput = L10n.t("Preparando worktree…", "Preparing worktree…")
 
         let mission = missions[idx]
         let task = mission.tasks[tIdx]
@@ -484,7 +484,7 @@ final class MissionEngine: ObservableObject {
                 else { return }
                 self.missions[i].tasks[j].worktreePath = wt.worktreePath
                 self.missions[i].tasks[j].branchName = wt.branchName
-                self.missions[i].tasks[j].lastOutput = "Executando Claude Code…"
+                self.missions[i].tasks[j].lastOutput = L10n.t("Executando Claude Code…", "Running Claude Code…")
                 self.saveMissions()
             }
 
@@ -654,7 +654,7 @@ final class MissionEngine: ObservableObject {
                     guard let self, let i = self.missionIndex(missionId),
                           let j = self.missions[i].tasks.firstIndex(where: { $0.id == taskId })
                     else { return }
-                    self.missions[i].tasks[j].lastOutput = "Verificando: \(verify)"
+                    self.missions[i].tasks[j].lastOutput = L10n.t("Verificando: \(verify)", "Verifying: \(verify)")
                 }
                 let verifyRes = Self.runShellVerify(command: verify, in: wt.worktreePath)
                 if !verifyRes.ok {
@@ -671,7 +671,10 @@ final class MissionEngine: ObservableObject {
                       let j = self.missions[i].tasks.firstIndex(where: { $0.id == taskId })
                 else { return }
                 self.missions[i].tasks[j].status = .merging
-                self.missions[i].tasks[j].lastOutput = "Integrando alterações em \(mission.baseBranch)…"
+                self.missions[i].tasks[j].lastOutput = L10n.t(
+                    "Integrando alterações em \(mission.baseBranch)…",
+                    "Merging into \(mission.baseBranch)…"
+                )
                 self.saveMissions()
             }
 
@@ -702,7 +705,9 @@ final class MissionEngine: ObservableObject {
                 case .merged(let hadChanges):
                     self.missions[i].tasks[j].status = .done
                     self.missions[i].tasks[j].finishedAt = Date()
-                    self.missions[i].tasks[j].lastOutput = hadChanges ? "Integrada em \(mission.baseBranch)" : "Concluída"
+                    self.missions[i].tasks[j].lastOutput = hadChanges
+                        ? L10n.t("Integrada em \(mission.baseBranch)", "Merged into \(mission.baseBranch)")
+                        : L10n.t("Concluída", "Completed")
                     self.appendLog(missionId, "[\(taskId)] Concluída" + (hadChanges ? " e integrada em \(mission.baseBranch)." : "."))
                     self.saveMissions()
                     self.scheduleNextTasks(for: missionId)
