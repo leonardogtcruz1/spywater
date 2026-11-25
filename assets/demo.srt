@@ -1,0 +1,15 @@
+1
+00:00:00,200 --> 00:00:05,300
+Monitor Claude Code & Antigravity agents live in one native macOS app
+
+2
+00:00:05,500 --> 00:00:11,300
+Instant alerts when an agent needs permission or your input
+
+3
+00:00:11,500 --> 00:00:18,300
+Multi-agent Missions: split tasks & run parallel Claude Code worktrees
+
+4
+00:00:18,500 --> 00:00:23,800
+Track 5h / 7d plan limits, tokens, and costs in a dedicated Usage tab

@@ -8,7 +8,7 @@
     {
       "name": "spywater",
       "source": "./plugin",
-      "description": "Envia eventos das sessões do Claude Code para o app SpyWater"
+      "description": "Send Claude Code session events and permission hooks to the SpyWater macOS app"
     }
   ]
 }

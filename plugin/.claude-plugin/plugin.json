@@ -1,7 +1,7 @@
 {
   "name": "spywater",
   "version": "0.1.0",
-  "description": "Monitora sessões do Claude Code no app SpyWater (permissões, perguntas, contexto, uso do plano)",
+  "description": "Monitor and control Claude Code sessions in SpyWater (permissions, questions, plans, context, and plan usage)",
   "author": {
     "name": "Leonardo Cruz"
   }

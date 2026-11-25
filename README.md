@@ -1,64 +1,67 @@
 # SpyWater
 
-Aplicativo nativo para macOS + integração para **Claude Code** e **Antigravity / Gemini** para acompanhar e controlar suas sessões em paralelo a partir de um painel e da barra de menus.
+Native macOS SwiftUI app + hooks for **Claude Code** and **Antigravity (Gemini)** to monitor, control, and orchestrate parallel AI coding agents from a floating dashboard and menu bar.
 
-## O que ele faz
+## Demo
 
-- **Visão ao vivo (Claude Code & Antigravity):** projeto, título, origem (`Claude Code` / `Antigravity`), atividade atual (comando Bash/`run_command`, edição de arquivo, busca, subagentes), modelo, esforço, custo estimado e uso da janela de contexto (com alerta visual a partir de 80% sugerindo `/compact`).
-- **Filtros por origem e prioridade para pendências:** filtre entre Todos, Claude Code ou Antigravity; sessões aguardando permissão, resposta (`AskUserQuestion` / `ask_question`), aprovação de plano (`ExitPlanMode`), erro ou sua próxima instrução sobem automaticamente para o topo.
-- **Allow / Deny e perguntas direto do app:** aprove comandos, edições e permissões, aprove com regras sugeridas ("Sempre permitir"), negue com instrução, responda perguntas de múltipla escolha/texto livre ou aprove/rejeite planos. Quando preferir, clique em **Responder no terminal** / **Responder no Antigravity**.
-- **Uso do plano:**
-  - **Claude Code:** barras para limite de **5 horas** e **semanal** via status line (com cache local) + tokens/turnos/custo/modelos locais em uma aba dedicada (**Uso do plano**).
-  - **Antigravity / Gemini:** tokens, turnos e top modelos nas janelas de **5 horas**, **7 dias** e **hoje** lidos dos transcripts locais.
-- **Missões multi-agente (Claude Code):** na aba **Missões**, descreva um projeto e o SpyWater divide automaticamente em subtarefas com dependências, roda vários agentes Claude Code em paralelo em `git worktree`s isoladas, verifica e faz merge automático até concluir toda a fila.
-- **Retomar / abrir sessões:** clique em qualquer card parado ou recente para pular direto para a aba/janela daquele agente (`claude --resume` ou foco no terminal/Antigravity).
+- [Watch the 24s demo video](assets/demo.mp4)
+- English subtitles: [assets/demo.srt](assets/demo.srt)
 
-## Estrutura do repositório
+## Features
 
-- `.claude-plugin/marketplace.json` — marketplace local para instalação no Claude Code
-- `plugin/` — plugin `spywater` e hooks (`spy-hook.sh`, `agy-hook.sh`, `statusline-tee.sh`)
-- `app/` — aplicativo SwiftUI nativo para macOS 14+ (`SpyWater.app`)
-- `scripts/` — build do app, integração da status line e hooks do Antigravity, e auto-teste
+- **Live multi-agent dashboard (Claude Code & Antigravity):** Distinct visual states and animations separate **Needs you** (pulsing coral/amber) from **Working** (flowing cyan/emerald), with source filters (`All`, `Claude`, `Antigravity`), model/context/cost indicators (including a `/compact` alert at 80%+), and a reactive corner mascot (*SpyDrop*).
+- **Unblock agents from anywhere:** Native cards to **Allow**, **Always Allow**, or **Deny** (with optional feedback), answer `AskUserQuestion` / `ask_question` prompts, and approve or reject `ExitPlanMode` plans. Click any session card to jump directly to its Terminal/iTerm tab, VS Code workspace, or Antigravity window.
+- **Dedicated Plan Usage tab:** Track Claude Code 5-hour and 7-day rate limits (via status line wrapper + local cache) alongside local token, turn, cost, and top-model telemetry for both Claude Code and Antigravity.
+- **Multi-agent Missions (Claude Code):** Describe a larger goal and SpyWater splits it into a dependency DAG, launches parallel Claude Code workers inside isolated `git worktree`s, runs verification commands, retries failures, and merges completed branches automatically.
+- **Zero third-party dependencies:** Built with pure SwiftUI / SwiftPM on macOS 14+, a local `127.0.0.1` hook server, and an optional English UI toggle (`SPYWATER_LANG=en`).
 
-## Como compilar e instalar
+## Repository Structure
 
-### 1. Compilar o app
+- `.claude-plugin/marketplace.json` — Local plugin marketplace definition for Claude Code
+- `plugin/` — `spywater` plugin and hooks (`spy-hook.sh`, `agy-hook.sh`, `statusline-tee.sh`)
+- `app/` — Native macOS 14+ SwiftUI application (`SpyWater.app`)
+- `scripts/` — App builder, Claude Code status line / Antigravity hook installers, self-tests, and demo recorder
+- `assets/` — Demo video and English subtitles (`demo.mp4`, `demo.srt`)
+
+## Build & Install
+
+### 1. Build the app
 
 ```bash
 ./scripts/build-app.sh
 ```
 
-O script compila em release com SwiftPM e instala o bundle assinado localmente em `~/Applications/SpyWater.app`.
+Compiles a release build with SwiftPM and installs the locally signed bundle to `~/Applications/SpyWater.app`.
 
-### 2. Instalar o plugin no Claude Code
+### 2. Install the Claude Code plugin
 
 ```bash
-claude plugin marketplace add /Users/leonardocruz/Desktop/spywater
+claude plugin marketplace add "$(pwd)"
 claude plugin install spywater@spywater-local
 ```
 
-### 3. Integrar a status line do Claude Code (limites 5h / semanal)
+### 3. Enable Claude Code status line integration (5h / 7d rate limits)
 
 ```bash
 ./scripts/install-statusline.sh
 ```
 
-### 4. Instalar os hooks do Antigravity / Gemini
+### 4. Install Antigravity / Gemini hooks
 
 ```bash
 ./scripts/install-agy-hooks.sh
 ```
 
-Esse script configura a entrada `"spywater"` em `~/.gemini/config/hooks.json` (fazendo backup em `~/.gemini/config/hooks.json.spywater-bak` se o arquivo já existir). Além dos hooks, o SpyWater também lê diretamente `~/.gemini/antigravity/conversation_summaries.db` e os `transcript.jsonl` locais para mostrar conversas já abertas, modelo e uso de contexto.
+Configures the `"spywater"` entry in `~/.gemini/config/hooks.json` (creating a backup at `~/.gemini/config/hooks.json.spywater-bak` if the file already exists). SpyWater also reads `~/.gemini/antigravity/conversation_summaries.db` and local `transcript.jsonl` files directly to surface open conversations, active models, and context usage.
 
-## Como usar
+## Usage
 
-1. Abra o `SpyWater.app` (ele aparece no Dock e na barra de menus).
-2. Use o `claude` no terminal ou o **Antigravity** normalmente.
-3. Pedidos de permissão e perguntas aparecem no painel e na barra de menus; se você não responder dentro do tempo configurado (padrão: 2 minutos), o pedido é devolvido automaticamente.
-4. Opcional: em **Configurações**, ative *"Interceptar comandos (run_command) do Antigravity para aprovar no SpyWater"* se quiser aprovar comandos do Antigravity direto pelo app.
+1. Launch `SpyWater.app` (available in the Dock and menu bar). Set `SPYWATER_LANG=en` in your environment if you prefer the English UI outside the default Portuguese interface.
+2. Run `claude` in your terminal or use **Antigravity** as usual.
+3. Permission prompts, questions, and plan approvals appear in the dashboard and menu bar; unanswered prompts automatically fall back to the host terminal/app after the configured timeout (default: 2 minutes).
+4. Optional: in **Settings**, enable command interception (`run_command`) for Antigravity if you want to approve shell commands directly from SpyWater.
 
-## Como desinstalar
+## Uninstall
 
 ```bash
 ./scripts/uninstall-statusline.sh
@@ -68,9 +71,9 @@ claude plugin marketplace remove spywater-local
 rm -rf ~/Applications/SpyWater.app ~/.spywater
 ```
 
-## Limitações conhecidas
+## Known Limitations
 
-- No Claude Code, interromper uma resposta com `Esc` no terminal não dispara o hook `Stop`, então a sessão pode ficar como "Trabalhando" até o próximo evento.
-- Os percentuais oficiais de limite do plano do Claude (5h / semanal) aparecem logo após a primeira resposta da sessão com o wrapper da status line ativo.
-- No Antigravity, respostas a `ask_question` pelo SpyWater funcionam injetando a resposta escolhida via `deny` + `reason` no hook `PreToolUse`, enquanto permissões (`ask_permission` ou `run_command`) usam `auto_approve` / `deny`.
-- Troca de modelo e envio de texto arbitrário para terminais sem tmux ainda não fazem parte desta versão.
+- Pressing `Esc` in Claude Code mid-response does not trigger the `Stop` hook, so the session stays marked as working until the next hook event.
+- Official Claude plan limit percentages (5h / 7d) appear right after the first session reply with the status line wrapper installed.
+- In Antigravity, `ask_question` replies are injected into the `PreToolUse` hook via `deny` + `reason`, whereas `ask_permission` and `run_command` approvals use `auto_approve` / `deny`.
+- Switching models mid-session and sending arbitrary text to non-tmux terminals are not supported in this version.
